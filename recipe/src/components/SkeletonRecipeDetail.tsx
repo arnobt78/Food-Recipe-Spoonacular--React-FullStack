@@ -1,66 +1,88 @@
 /**
- * Skeleton Loading Component for Recipe Detail Card
+ * Skeleton Loading Component for Recipe Detail Card/Page
  * 
- * Matches exact dimensions and layout of RecipeDetailCard component
+ * Matches exact dimensions and layout of RecipeDetailCard and RecipePage components
  * Used during loading states for consistent UI
+ * 
+ * Features:
+ * - Exact dimension matching for hero image, badges, tabs, and content
+ * - Responsive design (phone-screen and sm:screen)
+ * - Reusable across RecipeDetailCard and RecipePage
  */
 
-import { Card, CardContent, CardHeader } from "./ui/card";
+import { memo } from "react";
+import { Card, CardContent } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 
-const SkeletonRecipeDetail = () => {
+/**
+ * Skeleton Recipe Detail Component (Memoized for performance)
+ * 
+ * Exact dimension matching for recipe detail loading state
+ */
+const SkeletonRecipeDetail = memo(() => {
   return (
-    <Card className="glow-card border-purple-500/30 overflow-hidden w-full">
-      {/* Header Skeleton */}
-      <CardHeader className="relative bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-b border-purple-500/30">
-        <div className="flex items-start justify-between gap-4">
-          {/* Title Skeleton */}
-          <Skeleton className="h-10 w-3/4" />
-          {/* Buttons Skeleton */}
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-10 h-10 rounded-full" />
-            <Skeleton className="w-10 h-10 rounded-full" />
-          </div>
+    <div className="space-y-6">
+      {/* Hero Image Skeleton - matches RecipePage hero image (aspect-video sm:aspect-[21/9]) */}
+      <Card className="glow-card border-purple-500/30 overflow-hidden">
+        <div className="relative aspect-video sm:aspect-[21/9]">
+          <Skeleton className="w-full h-full" />
         </div>
-      </CardHeader>
+      </Card>
 
-      <CardContent className="p-0">
-        <div className="flex flex-col lg:flex-row">
-          {/* Left Side - Image Skeleton */}
-          <div className="lg:w-1/3 relative overflow-hidden">
-            <div className="aspect-square lg:aspect-auto lg:h-full relative">
-              <Skeleton className="w-full h-full" />
-            </div>
+      {/* Tabs Section Skeleton */}
+      <Card className="glow-card border-purple-500/30">
+        <CardContent className="p-4 sm:p-6">
+          {/* Tabs Skeleton - Responsive grid (matches RecipePage dynamic grid) */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full hidden sm:block" />
+            <Skeleton className="h-10 w-full hidden lg:block" />
+            <Skeleton className="h-10 w-full hidden lg:block" />
+            <Skeleton className="h-10 w-full hidden lg:block" />
           </div>
 
-          {/* Right Side - Content Skeleton */}
-          <div className="lg:w-2/3 p-6 space-y-6">
-            {/* Tabs Skeleton */}
-            <div className="grid grid-cols-3 gap-2 mb-6">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
+          {/* Data Source Note Skeleton */}
+          <Skeleton className="h-20 w-full mb-6 rounded-lg" />
 
-            {/* Content Skeleton */}
-            <div className="space-y-4">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-4/5" />
-            </div>
-
-            {/* Footer Skeleton */}
-            <div className="mt-6 pt-6 border-t border-purple-500/20">
-              <Skeleton className="h-4 w-2/3 mx-auto" />
-            </div>
+          {/* Key Info Badges Skeleton - Responsive grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Summary Content Skeleton */}
+          <div className="space-y-4 mb-6">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+
+          {/* Additional Info Cards Skeleton */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+
+          {/* Source Link Card Skeleton */}
+          <Skeleton className="h-32 w-full mb-6 rounded-lg" />
+
+          {/* Similar Recipes Skeleton */}
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </CardContent>
+      </Card>
+    </div>
   );
-};
+});
+
+SkeletonRecipeDetail.displayName = "SkeletonRecipeDetail";
 
 export default SkeletonRecipeDetail;
 

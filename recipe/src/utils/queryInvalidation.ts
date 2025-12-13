@@ -81,3 +81,18 @@ export function invalidateRecipeSummary(
   });
 }
 
+/**
+ * Invalidate all collection queries
+ * Call this when:
+ * - Collection is created/updated/deleted
+ * - Recipe is added/removed from collection
+ * 
+ * @param queryClient - React Query client instance
+ */
+export function invalidateCollectionsQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ["collections"],
+    exact: false,
+  });
+}
+

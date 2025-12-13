@@ -8,15 +8,18 @@
  */
 
 import { VercelRequest, VercelResponse } from "@vercel/node";
+import { setCorsHeaders, handleCorsPreflight } from "../lib/api-utils.js";
 
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
-  // Set CORS headers
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // Handle CORS preflight
+  if (handleCorsPreflight(request, response)) {
+    return;
+  }
+
+  setCorsHeaders(response);
 
   // Only allow GET method
   if (request.method !== "GET") {

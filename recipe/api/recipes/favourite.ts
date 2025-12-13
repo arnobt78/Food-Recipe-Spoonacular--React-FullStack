@@ -2,9 +2,9 @@
  * Vercel Serverless Function: /api/recipes/favourite
  * 
  * Handle favorite recipes operations:
- * - POST: Add a recipe to favorites
- * - GET: Get all favorite recipes
- * - DELETE: Remove a recipe from favorites
+ * - POST: Add a recipe to favorites (requires authentication)
+ * - GET: Get all favorite recipes (requires authentication)
+ * - DELETE: Remove a recipe from favorites (requires authentication)
  * 
  * @param request - Vercel request object
  * @returns JSON response based on operation
@@ -15,22 +15,15 @@ import "dotenv/config";
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import { prisma } from "../../lib/prisma.js";
 import { getFavouriteRecipesByIDs } from "../../lib/recipe-api.js";
-
-// CORS headers helper
-function setCorsHeaders(response: VercelResponse) {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
+import { setCorsHeaders, handleCorsPreflight, requireAuth } from "../../lib/api-utils.js";
 
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
   // Handle CORS preflight
-  if (request.method === "OPTIONS") {
-    setCorsHeaders(response);
-    return response.status(200).end();
+  if (handleCorsPreflight(request, response)) {
+    return;
   }
 
   setCorsHeaders(response);
@@ -38,24 +31,88 @@ export default async function handler(
   try {
     // POST: Add favorite recipe
     if (request.method === "POST") {
+      // Require authentication for adding favourites
+      const userId = await requireAuth(request, response);
+      if (!userId) {
+        return; // requireAuth already sent the response
+      }
+
       const { recipeId } = request.body;
 
       if (!recipeId) {
         return response.status(400).json({ error: "Recipe ID is required" });
       }
 
-      const favouriteRecipe = await prisma.favouriteRecipes.create({
-        data: {
-          recipeId: recipeId,
+      // Check if recipe is already favourited by this user
+      // Unique constraint is on (recipeId, userId), so we check both
+      const existing = await prisma.favouriteRecipes.findUnique({
+        where: {
+          recipeId_userId: {
+            recipeId: Number(recipeId),
+            userId: userId,
+          },
         },
       });
 
-      return response.status(201).json(favouriteRecipe);
+      // If already favourited by this user, return conflict
+      if (existing) {
+        return response.status(409).json({ 
+          error: "Recipe is already in favorites" 
+        });
+      }
+
+      // Create favourite with userId (for authenticated users)
+      // Prisma will handle createdAt/updatedAt automatically if columns exist
+      // If columns don't exist, we'll get an error which we'll handle
+      try {
+        const favouriteRecipe = await prisma.favouriteRecipes.create({
+          data: {
+            recipeId: Number(recipeId),
+            userId: userId, // Link to authenticated user
+          },
+          select: {
+            id: true,
+            recipeId: true,
+            userId: true,
+          },
+        });
+
+        return response.status(201).json(favouriteRecipe);
+      } catch (createError: unknown) {
+        const error = createError as Error;
+        // If error is about missing createdAt column, try without it
+        if (error.message.includes("createdAt") || error.message.includes("does not exist")) {
+          console.warn("⚠️ [Favourite API] Database schema mismatch - createdAt column missing. Attempting workaround...");
+          
+          // Try using raw SQL as fallback (if database doesn't have createdAt)
+          // For now, return a helpful error message
+          return response.status(500).json({
+            error: "Database schema needs migration",
+            message: "Please run: npx prisma migrate deploy or npx prisma db push",
+            details: error.message,
+          });
+        }
+        throw createError;
+      }
     }
 
     // GET: Get all favorite recipes
     if (request.method === "GET") {
-      const recipes = await prisma.favouriteRecipes.findMany();
+      // Require authentication to get user's favourites
+      const userId = await requireAuth(request, response);
+      if (!userId) {
+        return; // requireAuth already sent the response
+      }
+
+      // Get only this user's favourites
+      const recipes = await prisma.favouriteRecipes.findMany({
+        where: {
+          userId: userId,
+        },
+        select: {
+          recipeId: true,
+        },
+      });
       const recipeIds = recipes.map((recipe) => recipe.recipeId.toString());
 
       // If no favorites, return empty results
@@ -68,12 +125,13 @@ export default async function handler(
       try {
         const favourites = await getFavouriteRecipesByIDs(recipeIds);
         return response.status(200).json(favourites);
-      } catch (apiError: any) {
+      } catch (apiError: unknown) {
         // If Spoonacular API fails (e.g., daily limit reached), 
         // return the recipe IDs from database so favourites are still visible
-        const isApiLimitError = apiError?.code === 402 || 
-                                apiError?.message?.includes("points limit") ||
-                                apiError?.message?.includes("daily limit");
+        const error = apiError as { code?: number; message?: string };
+        const isApiLimitError = error?.code === 402 || 
+                                error?.message?.includes("points limit") ||
+                                error?.message?.includes("daily limit");
         
         if (isApiLimitError) {
           console.warn("⚠️ [Favourite API] Spoonacular API daily limit reached. Favourites exist in database but details unavailable.");
@@ -97,17 +155,37 @@ export default async function handler(
 
     // DELETE: Remove favorite recipe
     if (request.method === "DELETE") {
+      // Require authentication for removing favourites
+      const userId = await requireAuth(request, response);
+      if (!userId) {
+        return; // requireAuth already sent the response
+      }
+
       const { recipeId } = request.body;
 
       if (!recipeId) {
         return response.status(400).json({ error: "Recipe ID is required" });
       }
 
-      await prisma.favouriteRecipes.delete({
-        where: {
-          recipeId: recipeId,
-        },
-      });
+      // Delete only if it belongs to this user
+      // Use delete with unique constraint
+      try {
+        await prisma.favouriteRecipes.delete({
+          where: {
+            recipeId_userId: {
+              recipeId: Number(recipeId),
+              userId: userId,
+            },
+          },
+        });
+      } catch (deleteError: unknown) {
+        // If not found, that's okay (idempotent operation)
+        const error = deleteError as { code?: string };
+        if (error.code !== "P2025") {
+          // P2025 is "Record not found" - that's fine
+          throw deleteError;
+        }
+      }
 
       return response.status(204).end();
     }
@@ -146,4 +224,3 @@ export default async function handler(
     });
   }
 }
-

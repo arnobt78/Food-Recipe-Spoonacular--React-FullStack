@@ -105,10 +105,15 @@
 @layer components {
   .prose {
     @apply text-gray-200;
+    @apply overflow-x-hidden;
+    @apply break-words;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   
   .prose a {
     @apply text-purple-400 hover:text-purple-300 underline transition-colors;
+    word-break: break-word;
   }
   
   .prose strong {
@@ -129,10 +134,18 @@
   
   .prose p {
     @apply mb-4;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
   
   .prose h1, .prose h2, .prose h3 {
     @apply text-white font-bold mt-6 mb-4;
+    word-break: break-word;
+  }
+  
+  .prose * {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 

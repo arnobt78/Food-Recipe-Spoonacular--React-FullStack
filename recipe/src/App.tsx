@@ -1,6 +1,6 @@
 /**
  * Main App Component
- * 
+ *
  * Features:
  * - React Query for data fetching with infinite cache
  * - Query params synchronization
@@ -12,10 +12,20 @@
  * - No code duplication
  */
 
-import { FormEvent, useMemo, useCallback } from "react";
+import {
+  FormEvent,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  Suspense,
+  lazy,
+} from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RecipeProvider, useRecipeContext } from "./context/RecipeContext";
-import RecipeDetailCard from "./components/RecipeDetailCard";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import RecipePage from "./pages/RecipePage";
 import SearchInput from "./components/SearchInput";
 import TabNavigation from "./components/TabNavigation";
 import RecipeGrid from "./components/RecipeGrid";
@@ -23,27 +33,36 @@ import ErrorMessage from "./components/ErrorMessage";
 import EmptyState from "./components/EmptyState";
 import ViewMoreButton from "./components/ViewMoreButton";
 import HeroHeader from "./components/HeroHeader";
+import Navbar from "./components/Navbar";
 import SkeletonRecipeGrid from "./components/SkeletonRecipeGrid";
-import SkeletonSearchInput from "./components/SkeletonSearchInput";
-import SkeletonHeroHeader from "./components/SkeletonHeroHeader";
+import SkeletonMealPlanner from "./components/SkeletonMealPlanner";
+import SkeletonShoppingList from "./components/SkeletonShoppingList";
+
+// Code splitting: Lazy load large components that are conditionally rendered
+const CollectionManager = lazy(() => import("./components/CollectionManager"));
+const CollectionDetailView = lazy(
+  () => import("./components/CollectionDetailView")
+);
+const MealPlanner = lazy(() => import("./components/MealPlanner"));
+const ShoppingListGenerator = lazy(
+  () => import("./components/ShoppingListGenerator")
+);
 import {
   useSearchRecipes,
   useFavouriteRecipes,
   useAddFavouriteRecipe,
   useRemoveFavouriteRecipe,
 } from "./hooks/useRecipes";
-import { useIsFavourite } from "./hooks/useIsFavourite";
 import { Recipe, SearchRecipesResponse } from "./types";
-import { useEffect } from "react";
 import { toast } from "sonner";
 
 /**
- * Main App Content (wrapped in RecipeProvider)
+ * Main App Content (wrapped in RecipeProvider and AuthProvider)
  */
 const AppContent = () => {
   const {
-    selectedRecipe,
-    setSelectedRecipe,
+    selectedCollection,
+    setSelectedCollection,
     searchTerm,
     setSearchTerm,
     selectedTab,
@@ -52,12 +71,18 @@ const AppContent = () => {
     setCurrentPage,
   } = useRecipeContext();
 
+  const { isAuthenticated } = useAuth();
+
   // React Query hooks with infinite cache strategy
   const {
     data: searchResponse,
     isLoading: isSearching,
     error: searchError,
-  } = useSearchRecipes(searchTerm, currentPage, !!searchTerm && selectedTab === "search");
+  } = useSearchRecipes(
+    searchTerm,
+    currentPage,
+    !!searchTerm && selectedTab === "search"
+  );
 
   const {
     data: favouriteRecipes = [],
@@ -70,7 +95,7 @@ const AppContent = () => {
   // Handle search errors with toast
   useEffect(() => {
     if (searchError) {
-      const error = searchError as any;
+      const error = searchError as Error & { code?: number };
       if (error?.code === 402 || error?.message?.includes("points limit")) {
         toast.error(
           "Daily API limit reached. Please try again later or upgrade your plan."
@@ -88,11 +113,41 @@ const AppContent = () => {
     }
   }, [favouritesError]);
 
-  // Memoized computed values
-  const recipes = useMemo(
-    () => (Array.isArray(searchResponse?.results) ? searchResponse.results : []),
-    [searchResponse]
-  ) as Recipe[];
+  // Accumulate recipes across all pages for better UX
+  // Store all fetched pages in a ref to accumulate results
+  const allRecipesRef = useRef<Recipe[]>([]);
+  const lastPageRef = useRef<number>(0);
+  const lastSearchTermRef = useRef<string>("");
+
+  // Reset accumulated recipes when search term changes
+  useEffect(() => {
+    if (searchTerm !== lastSearchTermRef.current) {
+      allRecipesRef.current = [];
+      lastPageRef.current = 0;
+      lastSearchTermRef.current = searchTerm;
+    }
+  }, [searchTerm]);
+
+  // Accumulate recipes from all pages
+  const recipes = useMemo(() => {
+    if (!searchResponse?.results) {
+      return allRecipesRef.current;
+    }
+
+    const currentPageResults = searchResponse.results;
+
+    // If this is a new page, add to accumulated results
+    if (currentPage > lastPageRef.current) {
+      allRecipesRef.current = [...allRecipesRef.current, ...currentPageResults];
+      lastPageRef.current = currentPage;
+    } else if (currentPage === 1) {
+      // Reset on new search (page 1 means new search)
+      allRecipesRef.current = currentPageResults;
+      lastPageRef.current = 1;
+    }
+
+    return allRecipesRef.current;
+  }, [searchResponse, currentPage]) as Recipe[];
 
   const apiError = useMemo(
     () =>
@@ -104,7 +159,6 @@ const AppContent = () => {
     [searchResponse]
   );
 
-  const isSelectedRecipeFavourite = useIsFavourite(selectedRecipe, favouriteRecipes);
 
   // Memoized event handlers
   const handleSearchSubmit = useCallback(
@@ -117,158 +171,221 @@ const AppContent = () => {
   );
 
   const handleViewMoreClick = useCallback(() => {
-    setCurrentPage(currentPage + 1);
-  }, [currentPage, setCurrentPage]);
-
-  const handleRecipeClick = useCallback(
-    (recipe: Recipe) => {
-      setSelectedRecipe(recipe);
-    },
-    [setSelectedRecipe]
-  );
+    setCurrentPage((prev) => prev + 1);
+  }, [setCurrentPage]);
 
   const handleFavouriteToggle = useCallback(
     (recipe: Recipe, isFavourite: boolean) => {
+      // Check if user is authenticated before attempting to add/remove favourites
+      if (!isAuthenticated) {
+        toast.info(
+          "🍳 Hey there, food explorer! 👋 To save your favourite recipes, please login first. It's quick and easy! Just click the Login button above and let's get cooking! 🚀",
+          {
+            duration: 5000,
+          }
+        );
+        return;
+      }
+
       if (isFavourite) {
         removeFavouriteMutation.mutate(recipe);
       } else {
         addFavouriteMutation.mutate(recipe);
       }
     },
-    [addFavouriteMutation, removeFavouriteMutation]
+    [isAuthenticated, addFavouriteMutation, removeFavouriteMutation]
   );
 
-  const handleToggleFavourite = useCallback(() => {
-    if (!selectedRecipe) return;
-    handleFavouriteToggle(selectedRecipe, isSelectedRecipeFavourite);
-  }, [selectedRecipe, isSelectedRecipeFavourite, handleFavouriteToggle]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 pb-20 pt-5">
-      <div className="container mx-auto px-4 md:px-10 lg:px-20">
-        {/* Hero Header */}
-        {isSearching || isLoadingFavourites ? (
-          <SkeletonHeroHeader />
-        ) : (
-          <HeroHeader
-            title="My Recipe App"
-            subtitle="Discover & Save Your Favourite Recipes"
-            icons={["/chef.svg", "/cooking.svg", "/food.svg"]}
-          />
-        )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col">
+      {/* Navbar - Sticky at top */}
+      <Navbar />
 
-        {/* Tab Navigation */}
-        <TabNavigation value={selectedTab} onValueChange={setSelectedTab} />
+      {/* Full-width Hero Section */}
+      <HeroHeader subtitle="Discover & Save Your Favourite Recipes" />
 
-        <AnimatePresence mode="wait">
-          {selectedTab === "search" && (
-            <motion.div
-              key="search"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Search Input */}
-              {isSearching ? (
-                <SkeletonSearchInput />
-              ) : (
+      {/* Main Content - Flex grow to fill remaining space, full width with inner constraint */}
+      <div className="w-full flex-1">
+        <div className="w-full max-w-7xl mx-auto px-2 sm:px-0 py-4">
+          {/* Tab Navigation */}
+          <TabNavigation value={selectedTab} onValueChange={setSelectedTab} />
+
+          <AnimatePresence mode="wait">
+            {selectedTab === "search" && (
+              <motion.div
+                key="search"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                {/* Search Input - Always visible, never shows loading */}
                 <SearchInput
                   value={searchTerm}
                   onChange={setSearchTerm}
                   onSubmit={handleSearchSubmit}
-                  isLoading={isSearching}
                 />
-              )}
 
-              {/* Error Message */}
-              <ErrorMessage message={apiError} />
+                {/* Error Message */}
+                <ErrorMessage message={apiError} />
 
-              {/* Recipe Grid */}
-              {isSearching ? (
-                <SkeletonRecipeGrid count={8} />
-              ) : recipes.length > 0 ? (
-                <RecipeGrid
-                  recipes={recipes}
-                  favouriteRecipes={favouriteRecipes}
-                  onRecipeClick={handleRecipeClick}
-                  onFavouriteToggle={handleFavouriteToggle}
-                />
-              ) : null}
+                {/* Recipe Grid */}
+                {isSearching ? (
+                  <SkeletonRecipeGrid count={8} />
+                ) : recipes.length > 0 ? (
+                  <RecipeGrid
+                    recipes={recipes}
+                    favouriteRecipes={favouriteRecipes}
+                    onFavouriteToggle={handleFavouriteToggle}
+                  />
+                ) : null}
 
-              {/* View More Button */}
-              {recipes.length > 0 && (
-                <ViewMoreButton onClick={handleViewMoreClick} isLoading={isSearching} />
-              )}
-            </motion.div>
-          )}
-
-          {selectedTab === "favourites" && (
-            <motion.div
-              key="favourites"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-            >
-              {isLoadingFavourites ? (
-                <SkeletonRecipeGrid count={4} />
-              ) : favouriteRecipes.length === 0 ? (
-                <EmptyState message="No favourite recipes yet. Add some from the search tab!" />
-              ) : (
-                <RecipeGrid
-                  recipes={favouriteRecipes as Recipe[]}
-                  favouriteRecipes={favouriteRecipes as Recipe[]}
-                  onRecipeClick={handleRecipeClick}
-                  onFavouriteToggle={handleFavouriteToggle}
-                />
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Recipe Detail Card (replaces modal) */}
-        <AnimatePresence>
-          {selectedRecipe && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-              onClick={() => setSelectedRecipe(undefined)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-6xl max-h-[90vh] overflow-y-auto custom-scrollbar"
-              >
-                <RecipeDetailCard
-                  recipe={selectedRecipe}
-                  onClose={() => setSelectedRecipe(undefined)}
-                  isFavourite={isSelectedRecipeFavourite}
-                  onToggleFavourite={handleToggleFavourite}
-                />
+                {/* View More Button - Show if there are more results available */}
+                {recipes.length > 0 &&
+                  searchResponse?.totalResults &&
+                  recipes.length < searchResponse.totalResults && (
+                    <ViewMoreButton
+                      onClick={handleViewMoreClick}
+                      isLoading={isSearching}
+                    />
+                  )}
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+
+            {selectedTab === "favourites" && (
+              <motion.div
+                key="favourites"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {isLoadingFavourites ? (
+                  <SkeletonRecipeGrid count={4} />
+                ) : favouriteRecipes.length === 0 ? (
+                  <EmptyState
+                    message="No Favourite Recipes Yet"
+                    subtitle={
+                      isAuthenticated
+                        ? "Start exploring and add recipes you love to your favourites! 🍳✨"
+                        : "Hey there, food explorer! 👋 To see your favourite recipes, you'll need to login first. Don't worry, it's quick and easy! Once you're in, you can save all those delicious recipes that make your taste buds dance. 🎉 Just click the Login button above and let's get cooking! 🚀"
+                    }
+                    fullWidth={true}
+                  />
+                ) : (
+                  <RecipeGrid
+                    recipes={favouriteRecipes as Recipe[]}
+                    favouriteRecipes={favouriteRecipes as Recipe[]}
+                    onFavouriteToggle={handleFavouriteToggle}
+                  />
+                )}
+              </motion.div>
+            )}
+
+            {selectedTab === "collections" && (
+              <motion.div
+                key="collections"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {isAuthenticated ? (
+                  selectedCollection ? (
+                    <Suspense fallback={<SkeletonRecipeGrid count={4} />}>
+                      <CollectionDetailView
+                        collection={selectedCollection}
+                        onBack={() => setSelectedCollection(undefined)}
+                        onDelete={() => {
+                          setSelectedCollection(undefined);
+                        }}
+                      />
+                    </Suspense>
+                  ) : (
+                    <Suspense fallback={<SkeletonRecipeGrid count={4} />}>
+                      <CollectionManager
+                        onCollectionSelect={(collection) =>
+                          setSelectedCollection(collection)
+                        }
+                      />
+                    </Suspense>
+                  )
+                ) : (
+                  <EmptyState
+                    message="Login Required"
+                    subtitle="Please login to create and manage your recipe collections!"
+                  />
+                )}
+              </motion.div>
+            )}
+
+            {selectedTab === "meal-plan" && (
+              <motion.div
+                key="meal-plan"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {isAuthenticated ? (
+                  <Suspense fallback={<SkeletonMealPlanner />}>
+                    <MealPlanner />
+                  </Suspense>
+                ) : (
+                  <EmptyState
+                    message="Login Required"
+                    subtitle="Please login to create and manage your weekly meal plans!"
+                  />
+                )}
+              </motion.div>
+            )}
+
+            {selectedTab === "shopping" && (
+              <motion.div
+                key="shopping"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {isAuthenticated ? (
+                  <Suspense fallback={<SkeletonShoppingList />}>
+                    <ShoppingListGenerator />
+                  </Suspense>
+                ) : (
+                  <EmptyState
+                    message="Login Required"
+                    subtitle="Please login to generate and manage your shopping lists!"
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </div>
       </div>
     </div>
   );
 };
 
 /**
- * App Component with RecipeProvider
+ * App Component with RecipeProvider and AuthProvider
+ * Uses React Router for navigation
  */
 const App = () => {
   return (
-    <RecipeProvider>
-      <AppContent />
-    </RecipeProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <RecipeProvider>
+          <Routes>
+            <Route path="/" element={<AppContent />} />
+            <Route path="/recipe/:id" element={<RecipePage />} />
+          </Routes>
+        </RecipeProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 

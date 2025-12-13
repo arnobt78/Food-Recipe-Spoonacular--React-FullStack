@@ -14,15 +14,24 @@
 import "dotenv/config";
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import { getRecipeSummary } from "../../../lib/recipe-api.js";
+import { setCorsHeaders, handleCorsPreflight } from "../../../lib/api-utils.js";
 
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
+  // Handle CORS preflight
+  if (handleCorsPreflight(request, response)) {
+    return;
+  }
+
   // Only allow GET method
   if (request.method !== "GET") {
+    setCorsHeaders(response);
     return response.status(405).json({ error: "Method not allowed" });
   }
+
+  setCorsHeaders(response);
 
   try {
     // Get recipeId from route parameter (Vercel dynamic route)
@@ -34,11 +43,6 @@ export default async function handler(
     }
 
     const results = await getRecipeSummary(recipeId);
-
-    // Set CORS headers
-    response.setHeader("Access-Control-Allow-Origin", "*");
-    response.setHeader("Access-Control-Allow-Methods", "GET");
-    response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     return response.status(200).json(results);
   } catch (error) {

@@ -7,6 +7,7 @@
  * - Reusable across the app
  */
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 
 interface ErrorMessageProps {
@@ -14,7 +15,15 @@ interface ErrorMessageProps {
   className?: string;
 }
 
-const ErrorMessage = ({ message, className = "" }: ErrorMessageProps) => {
+/**
+ * Reusable Error Message Component (Memoized for performance)
+ *
+ * Features:
+ * - Consistent error styling
+ * - Animated appearance
+ * - Reusable across the app
+ */
+const ErrorMessage = memo(({ message, className = "" }: ErrorMessageProps) => {
   if (!message) return null;
 
   return (
@@ -29,7 +38,9 @@ const ErrorMessage = ({ message, className = "" }: ErrorMessageProps) => {
       {message}
     </motion.div>
   );
-};
+});
+
+ErrorMessage.displayName = "ErrorMessage";
 
 export default ErrorMessage;
 

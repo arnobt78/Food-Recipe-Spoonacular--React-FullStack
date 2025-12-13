@@ -29,7 +29,10 @@ module.exports = {
   rules: {
     'react-refresh/only-export-components': [
       'warn',
-      { allowConstantExport: true },
+      { 
+        allowConstantExport: true,
+        allowExportNames: ['buttonVariants', 'badgeVariants', 'useAuth', 'useRecipeContext'],
+      },
     ],
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': [

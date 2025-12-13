@@ -1,42 +1,144 @@
-# Environment variables
+# ============================================
+# Centralized .gitignore for Recipe App
+# ============================================
+
+# Environment Variables
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
 !.env.example
+!.env.template
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build Outputs
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.vite/
+*.tsbuildinfo
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pnpm-debug.log*
 
-# Dependencies
-node_modules
-
-# Build outputs
-dist
-dist-ssr
+# Runtime & Cache
+.cache/
+.parcel-cache/
+.turbo/
+.vercel/
+.netlify/
 *.local
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+.vitest/
 
 # Prisma
-prisma/migrations
+prisma/migrations/
+!prisma/schema.prisma
+!prisma/migration_lock.toml
 
-# Vercel
-.vercel
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
-# Editor directories and files
+# Editor Directories and Files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Cursor
+# Cursor IDE
+.cursor/
 .cursorignore
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Package Manager Lock Files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# TypeScript
+*.tsbuildinfo
+.tsbuildinfo
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# Optional: Documentation files (uncomment if you want to exclude)
+# PROJECT_PLAN.md
+# SPOONACULAR_API_DOCS.md
+# DEVELOPMENT_RULES.md
+# REACT_QUERY_SETUP_GUIDE.md
+
+# Vercel
+.vercel
+
+# Netlify
+.netlify/
+
+# Serverless
+.serverless/
+
+# Misc
+*.pem
+*.key
+*.cert
+.certificates/
+
+# Project Documentation
+PROJECT_PLAN.md
+SPOONACULAR_API_DOCS.md
+DEVELOPMENT_RULES.md

@@ -1,7 +1,7 @@
 {
-  "name": "recipe-app-frontend",
+  "name": "recipe",
   "private": true,
-  "version": "1.0.1",
+  "version": "2.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,18 +13,25 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.10.0",
     "@prisma/client": "^6.15.0",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@tanstack/react-query": "^5.90.12",
+    "@types/react-router-dom": "^5.3.3",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "framer-motion": "^12.23.25",
     "lucide-react": "^0.556.0",
     "react": "^18.3.1",
+    "react-day-picker": "^9.12.0",
     "react-dom": "^18.3.1",
     "react-icons": "^5.3.0",
+    "react-router-dom": "^7.10.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"
   },

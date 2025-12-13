@@ -16,8 +16,9 @@ import RecipeCard from "./RecipeCard";
 interface RecipeGridProps {
   recipes: Recipe[];
   favouriteRecipes: Recipe[];
-  onRecipeClick: (recipe: Recipe) => void;
   onFavouriteToggle: (recipe: Recipe, isFavourite: boolean) => void;
+  showRemoveFromCollection?: boolean;
+  // Note: onRecipeClick removed - RecipeCard handles navigation internally via useNavigate
 }
 
 /**
@@ -32,8 +33,8 @@ interface RecipeGridProps {
 const RecipeGrid = memo(({
   recipes,
   favouriteRecipes,
-  onRecipeClick,
   onFavouriteToggle,
+  showRemoveFromCollection = false,
 }: RecipeGridProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -53,11 +54,12 @@ const RecipeGrid = memo(({
             >
               <RecipeCard
                 recipe={recipe}
-                onClick={() => onRecipeClick(recipe)}
                 onFavouriteButtonClick={(recipe) =>
-                  onFavouriteToggle(recipe, isFavourite)
+                  onFavouriteToggle(recipe, showRemoveFromCollection ? true : isFavourite)
                 }
-                isFavourite={isFavourite}
+                isFavourite={showRemoveFromCollection ? true : isFavourite}
+                showRemoveButton={showRemoveFromCollection}
+                index={index}
               />
             </motion.div>
           );

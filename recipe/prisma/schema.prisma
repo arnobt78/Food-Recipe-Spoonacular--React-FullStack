@@ -11,7 +11,183 @@ datasource db {
 }
 
 model FavouriteRecipes {
-  id       Int @id @default(autoincrement())
-  recipeId Int @unique
+  id        Int      @id @default(autoincrement())
+  recipeId  Int
+  userId    String? // Auth0 user ID (optional for backward compatibility)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unique constraint: one user can only favourite a recipe once
+  // But multiple users can favourite the same recipe
+  @@unique([recipeId, userId])
+  @@index([userId])
+  @@index([recipeId])
 }
 
+/**
+ * User model - stores Auth0 user information
+ */
+model User {
+  id        String   @id // Auth0 user ID
+  email     String   @unique
+  name      String?
+  picture   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  collections   RecipeCollection[]
+  notes         RecipeNote[]
+  favourites    FavouriteRecipes[]
+  mealPlans     MealPlan[]
+  shoppingLists ShoppingList[]
+  recipeImages  RecipeImage[]
+
+  @@index([email])
+}
+
+/**
+ * Recipe Collection model - user-created recipe collections
+ */
+model RecipeCollection {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  color       String? // Hex color for UI customization
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([userId])
+}
+
+/**
+ * Collection Item model - recipes in a collection
+ */
+model CollectionItem {
+  id           String   @id @default(uuid())
+  collectionId String
+  recipeId     Int
+  recipeTitle  String
+  recipeImage  String?
+  order        Int      @default(0) // For custom ordering
+  createdAt    DateTime @default(now())
+
+  // Relations
+  collection RecipeCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, recipeId])
+  @@index([collectionId])
+}
+
+/**
+ * Recipe Note model - user's personal notes on recipes
+ */
+model RecipeNote {
+  id        String   @id @default(uuid())
+  userId    String
+  recipeId  Int
+  title     String?
+  content   String // Markdown or plain text
+  rating    Int? // 1-5 star rating
+  tags      String[] // Array of tags
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+  @@index([userId])
+  @@index([recipeId])
+}
+
+/**
+ * Meal Plan model - weekly meal planning
+ */
+model MealPlan {
+  id        String   @id @default(uuid())
+  userId    String
+  weekStart DateTime // Start of the week (Monday)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals MealPlanItem[]
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+  @@index([weekStart])
+}
+
+/**
+ * Meal Plan Item model - recipes scheduled for specific days/meals
+ */
+model MealPlanItem {
+  id          String   @id @default(uuid())
+  mealPlanId  String
+  recipeId    Int
+  recipeTitle String
+  recipeImage String?
+  dayOfWeek   Int // 0-6 (Monday-Sunday)
+  mealType    String // "breakfast", "lunch", "dinner", "snack"
+  servings    Int      @default(1)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+
+  @@index([mealPlanId])
+  @@index([dayOfWeek])
+}
+
+/**
+ * Shopping List model - generated shopping lists
+ */
+model ShoppingList {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  recipeIds   Int[] // Array of recipe IDs
+  items       Json // Shopping list items with quantities and categories
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isCompleted])
+}
+
+/**
+ * Recipe Image model - user-uploaded recipe images
+ */
+model RecipeImage {
+  id        String   @id @default(uuid())
+  userId    String
+  recipeId  Int
+  imageUrl  String // Cloudinary/ImageKit URL
+  imageType String // "step", "final", "ingredient", "custom"
+  order     Int      @default(0)
+  caption   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([recipeId])
+  @@index([imageType])
+}
