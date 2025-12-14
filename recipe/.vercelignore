@@ -3,3 +3,6 @@ dist
 .env.local
 .env*.local
 
+# Ignore archived API files to prevent Vercel routing conflicts
+**/_archive/**
+**/\[*\]/_archive/**
