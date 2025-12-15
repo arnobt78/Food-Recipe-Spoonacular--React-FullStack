@@ -5,9 +5,9 @@
  * - /api/recipes/search → handled via path[0] === "search"
  * - /api/recipes/autocomplete → handled via path[0] === "autocomplete"
  * - /api/recipes/favourite → handled via path[0] === "favourite"
- * - /api/recipes/[recipeId]/information → handled via path[0] is numeric, path[1] === "information"
- * - /api/recipes/[recipeId]/similar → handled via path[0] is numeric, path[1] === "similar"
- * - /api/recipes/[recipeId]/summary → handled via path[0] is numeric, path[1] === "summary"
+ * - /api/recipes/[recipeId]/information → handled by [recipeId]/information.ts (specific route)
+ * - /api/recipes/[recipeId]/similar → handled by [recipeId]/similar.ts (specific route)
+ * - /api/recipes/[recipeId]/summary → handled by [recipeId]/summary.ts (specific route)
  * 
  * All original code preserved, consolidated to reduce serverless function count.
  * Frontend calls remain exactly the same - no changes needed.
@@ -15,7 +15,7 @@
 
 import "dotenv/config";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { searchRecipes, autocompleteRecipes, getRecipeInformation, getSimilarRecipes, getRecipeSummary } from "../../lib/recipe-api.js";
+import { searchRecipes, autocompleteRecipes } from "../../lib/recipe-api.js";
 import { prisma } from "../../lib/prisma.js";
 import { getFavouriteRecipesByIDs } from "../../lib/recipe-api.js";
 import {
@@ -28,6 +28,16 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
+  // CRITICAL: Log EVERY request to see what's being routed
+  // This helps debug why numeric recipe IDs aren't being handled
+  console.log("🚀 [Recipes API] Handler called:", {
+    method: request.method,
+    url: request.url,
+    "query.path": request.query.path,
+    "query": request.query,
+    "headers.host": request.headers.host,
+  });
+  
   // Handle CORS preflight
   if (handleCorsPreflight(request, response)) {
     return;
@@ -40,17 +50,30 @@ export default async function handler(
   // When running from parent directory, path extraction may need special handling
   let pathArray: string[] = [];
   
+  // DEBUG: Log all path-related information
+  console.log("🔍 [Recipes API] Path extraction debug:", {
+    "request.url": request.url,
+    "request.query.path": request.query.path,
+    "request.query.path type": typeof request.query.path,
+    "request.query.path isArray": Array.isArray(request.query.path),
+    "request.headers.host": request.headers.host,
+    "request.headers['x-forwarded-host']": request.headers["x-forwarded-host"],
+    "request.headers['x-forwarded-proto']": request.headers["x-forwarded-proto"],
+  });
+  
   // Method 1: Use request.query.path (Vercel's catch-all route parameter)
   // This is the PRIMARY method - Vercel should populate this for [...path] routes
   const pathParam = request.query.path;
   if (pathParam) {
     if (Array.isArray(pathParam)) {
       pathArray = pathParam;
+      console.log("✅ [Recipes API] Path from query.path (array):", pathArray);
     } else if (typeof pathParam === "string") {
       // Handle both "/" separated strings and comma-separated strings
       pathArray = pathParam.includes("/") 
         ? pathParam.split("/").filter(Boolean)
         : pathParam.split(",").filter(Boolean);
+      console.log("✅ [Recipes API] Path from query.path (string):", pathArray);
     }
   }
   
@@ -72,6 +95,12 @@ export default async function handler(
         url = new URL(request.url, `${protocol}://${host}`);
       }
       
+      console.log("🔍 [Recipes API] Parsed URL:", {
+        pathname: url.pathname,
+        search: url.search,
+        fullUrl: url.toString(),
+      });
+      
       // Extract path segments after /api/recipes
       // Handle both /api/recipes/... and /frontend-serverless/api/recipes/... patterns
       const segments = url.pathname.split("/").filter(Boolean);
@@ -90,6 +119,9 @@ export default async function handler(
       
       if (recipesIndex !== -1 && recipesIndex < segments.length - 1) {
         pathArray = segments.slice(recipesIndex + 1);
+        console.log("✅ [Recipes API] Path from URL pathname:", pathArray);
+      } else {
+        console.log("⚠️ [Recipes API] Could not find 'recipes' in pathname segments:", segments);
       }
     } catch (error) {
       console.error("❌ [Recipes API] URL parsing error:", error);
@@ -99,82 +131,79 @@ export default async function handler(
   // Method 3: Try extracting from request.url directly using regex (last resort)
   // This handles edge cases where URL format is non-standard
   if (pathArray.length === 0 && request.url) {
-    // Match /api/recipes/... and extract everything after recipes/
-    // Also handle /frontend-serverless/api/recipes/... pattern
-    const match = request.url.match(/(?:^|\/)(?:frontend-serverless\/)?api\/recipes\/(.+?)(?:\?|$)/);
+    const urlStr = typeof request.url === "string" ? request.url : String(request.url);
+    
+    // Try multiple patterns to match different URL formats
+    // Pattern 1: /api/recipes/716426/information
+    // Pattern 2: /frontend-serverless/api/recipes/716426/information
+    // Pattern 3: /recipes/716426/information (if /api was stripped)
+    let match = urlStr.match(/(?:^|\/)(?:frontend-serverless\/)?api\/recipes\/(.+?)(?:\?|$)/);
+    if (!match) {
+      // Try without /api prefix (in case it was stripped)
+      match = urlStr.match(/\/recipes\/(.+?)(?:\?|$)/);
+    }
+    if (!match) {
+      // Try matching just the path segments after any /recipes/
+      match = urlStr.match(/recipes\/(.+?)(?:\?|$)/);
+    }
+    
     if (match && match[1]) {
       pathArray = match[1].split("/").filter(Boolean);
+      console.log("✅ [Recipes API] Path from regex extraction:", pathArray);
+    } else {
+      console.log("⚠️ [Recipes API] Regex extraction failed for URL:", request.url);
     }
+  }
+  
+  // Final check: If still no path, try one more method - check if path is in the URL directly
+  if (pathArray.length === 0 && request.url) {
+    // Try to extract from the raw URL string - handle various formats
+    const urlStr = typeof request.url === "string" ? request.url : String(request.url);
+    
+    // Pattern: /api/recipes/716426/information or /recipes/716426/information
+    const recipesMatch = urlStr.match(/\/recipes\/([^?]+)/);
+    if (recipesMatch && recipesMatch[1]) {
+      pathArray = recipesMatch[1].split("/").filter(Boolean);
+      console.log("✅ [Recipes API] Path from URL regex (final fallback):", pathArray);
+    }
+  }
+  
+  // Final check: If still no path, log error
+  if (pathArray.length === 0) {
+    console.error("❌ [Recipes API] Failed to extract path from request:", {
+      url: request.url,
+      query: request.query,
+      "query.path": request.query.path,
+      headers: {
+        host: request.headers.host,
+        "x-forwarded-host": request.headers["x-forwarded-host"],
+      },
+    });
+    return response.status(500).json({ 
+      error: "Internal server error: Could not extract path from request",
+      debug: {
+        url: request.url,
+        query: request.query,
+      }
+    });
   }
 
   const firstSegment = pathArray[0] || "";
   const secondSegment = pathArray[1] || "";
   
-  // Check if first segment is numeric (recipeId) - handle recipe detail endpoints
-  // This handles routes like /api/recipes/716426/information
+  console.log("📋 [Recipes API] Final path segments:", {
+    firstSegment,
+    secondSegment,
+    fullPath: pathArray,
+    "firstSegment isNumeric": firstSegment ? /^\d+$/.test(firstSegment) : false,
+  });
+  
+  // IMPORTANT: If first segment is numeric (recipeId), let specific routes handle it
+  // Specific routes at [recipeId]/information.ts, [recipeId]/similar.ts, [recipeId]/summary.ts
+  // This prevents routing conflicts with the catch-all route
   if (firstSegment && /^\d+$/.test(firstSegment)) {
-    const recipeId = firstSegment;
-    const endpoint = secondSegment;
-
-    console.log("🎯 [Recipes API] Handling recipe detail endpoint:", {
-      recipeId,
-      endpoint,
-      pathArray,
-    });
-
-    if (!endpoint) {
-      console.error("❌ [Recipes API] Recipe endpoint missing for recipeId:", recipeId);
-      return response.status(400).json({ error: "Recipe endpoint is required (information, similar, or summary)" });
-    }
-
-    // Only allow GET method for recipe detail endpoints
-    if (request.method !== "GET") {
-      return response.status(405).json({ error: "Method not allowed" });
-    }
-
-    try {
-      // Handle /api/recipes/[recipeId]/information
-      if (endpoint === "information") {
-        const options = {
-          includeNutrition: request.query.includeNutrition === "true",
-          addWinePairing: request.query.addWinePairing === "true",
-          addTasteData: request.query.addTasteData === "true",
-        };
-
-        const results = await getRecipeInformation(recipeId, options);
-        return response.status(200).json(results);
-      }
-
-      // Handle /api/recipes/[recipeId]/similar
-      if (endpoint === "similar") {
-        const number = request.query.number 
-          ? parseInt(request.query.number as string, 10) 
-          : 10;
-
-        if (isNaN(number) || number < 1 || number > 100) {
-          return response.status(400).json({ error: "Number must be between 1 and 100" });
-        }
-
-        const results = await getSimilarRecipes(recipeId, number);
-        return response.status(200).json(results);
-      }
-
-      // Handle /api/recipes/[recipeId]/summary
-      if (endpoint === "summary") {
-        const results = await getRecipeSummary(recipeId);
-        return response.status(200).json(results);
-      }
-
-      return response.status(404).json({ error: "Endpoint not found" });
-    } catch (error) {
-      console.error(`❌ [Recipe Detail API] Error handling ${endpoint} request:`, error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const statusCode = errorMessage.includes("limit") || errorMessage.includes("402") ? 402 : 500;
-      return response.status(statusCode).json({ 
-        error: `Failed to fetch ${endpoint}`,
-        message: errorMessage
-      });
-    }
+    console.log("⚠️ [Recipes API] Numeric recipeId detected, should be handled by specific [recipeId] routes");
+    return response.status(404).json({ error: "Endpoint not found" });
   }
 
   // Handle action endpoints (search, autocomplete, favourite)
@@ -645,7 +674,23 @@ export default async function handler(
       return response.status(405).json({ error: "Method not allowed" });
     }
 
-    return response.status(404).json({ error: "Endpoint not found" });
+    // DEBUG: Log why endpoint wasn't found
+    console.error("❌ [Recipes API] Endpoint not found:", {
+      endpoint: firstSegment,
+      pathArray,
+      method: request.method,
+      url: request.url,
+      "query.path": request.query.path,
+    });
+    
+    return response.status(404).json({ 
+      error: "Endpoint not found",
+      debug: {
+        endpoint: firstSegment,
+        pathArray,
+        method: request.method,
+      }
+    });
   } catch (error) {
     console.error("❌ [Recipes Consolidated API] Error:", error);
     console.error(

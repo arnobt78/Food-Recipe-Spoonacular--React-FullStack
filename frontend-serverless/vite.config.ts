@@ -24,8 +24,11 @@ export default defineConfig({
         // Preserve the original path and query string
         // Vercel dev expects /api/* paths, so we keep them as-is
         rewrite: (path) => {
-          // Remove /api prefix if it exists (Vite adds it, but we want to keep it for Vercel)
-          // Actually, we want to keep /api in the path for Vercel
+          // CRITICAL: Keep /api prefix - Vercel catch-all route expects full path
+          // The catch-all route [...path].ts is at /api/recipes/[...path]
+          // Vercel will extract path segments from request.query.path
+          // Example: /api/recipes/716426/information → Vercel extracts ["716426", "information"]
+          // We keep the full path so Vercel can properly route it
           return path;
         },
         // Configure proxy to handle errors gracefully
