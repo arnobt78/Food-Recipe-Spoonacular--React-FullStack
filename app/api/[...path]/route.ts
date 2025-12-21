@@ -1363,10 +1363,16 @@ export async function DELETE(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const deleted = await prisma.collectionItem.deleteMany({
         where: {
           collectionId,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
         },
       });
 
