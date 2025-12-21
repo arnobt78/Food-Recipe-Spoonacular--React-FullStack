@@ -190,8 +190,10 @@ export async function GET(
         return jsonResponse({ error: "Number must be between 1 and 25" }, 400);
       }
 
-      const results = await autocompleteRecipes(query, number);
-      return jsonResponse(results);
+      const results = await autocompleteRecipes(query.trim(), number);
+      const response = jsonResponse(results);
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/recipes/favourite (GET)
@@ -238,6 +240,13 @@ export async function GET(
     // Route: /api/recipes/[id]/information
     if (path[0] === "recipes" && path[1] && /^\d+$/.test(path[1]) && path[2] === "information") {
       const recipeId = path[1];
+      
+      // Validate recipe ID is a positive integer
+      const recipeIdNum = parseInt(recipeId, 10);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0) {
+        return jsonResponse({ error: "Invalid recipe ID" }, 400);
+      }
+      
       const options = {
         includeNutrition: searchParams.get("includeNutrition") === "true",
         addWinePairing: searchParams.get("addWinePairing") === "true",
@@ -245,12 +254,21 @@ export async function GET(
       };
 
       const results = await getRecipeInformation(recipeId, options);
-      return jsonResponse(results);
+      const response = jsonResponse(results);
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/recipes/[id]/similar
     if (path[0] === "recipes" && path[1] && /^\d+$/.test(path[1]) && path[2] === "similar") {
       const recipeId = path[1];
+      
+      // Validate recipe ID
+      const recipeIdNum = parseInt(recipeId, 10);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0) {
+        return jsonResponse({ error: "Invalid recipe ID" }, 400);
+      }
+      
       const number = parseInt(searchParams.get("number") || "10", 10);
 
       if (isNaN(number) || number < 1 || number > 100) {
@@ -258,14 +276,25 @@ export async function GET(
       }
 
       const results = await getSimilarRecipes(recipeId, number);
-      return jsonResponse(results);
+      const response = jsonResponse(results);
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/recipes/[id]/summary
     if (path[0] === "recipes" && path[1] && /^\d+$/.test(path[1]) && path[2] === "summary") {
       const recipeId = path[1];
+      
+      // Validate recipe ID
+      const recipeIdNum = parseInt(recipeId, 10);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0) {
+        return jsonResponse({ error: "Invalid recipe ID" }, 400);
+      }
+      
       const results = await getRecipeSummary(recipeId);
-      return jsonResponse(results);
+      const response = jsonResponse(results);
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/recipes/images (GET)
@@ -278,21 +307,29 @@ export async function GET(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = parseInt(recipeId, 10);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const images = await prisma.recipeImage.findMany({
         where: {
           userId: auth.userId!,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
         },
         orderBy: [{ imageType: "asc" }, { order: "asc" }],
       });
 
-      return jsonResponse(
+      const response = jsonResponse(
         images.map((img) => ({
           ...img,
           createdAt: img.createdAt.toISOString(),
           updatedAt: img.updatedAt.toISOString(),
         }))
       );
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/recipes/notes (GET)
@@ -305,11 +342,17 @@ export async function GET(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = parseInt(recipeId, 10);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const note = await prisma.recipeNote.findUnique({
         where: {
           userId_recipeId: {
             userId: auth.userId!,
-            recipeId: Number(recipeId),
+            recipeId: recipeIdNum,
           },
         },
       });
@@ -344,7 +387,7 @@ export async function GET(
         orderBy: { createdAt: "desc" },
       });
 
-      return jsonResponse(
+      const response = jsonResponse(
         collections.map((collection) => ({
           ...collection,
           itemCount: collection._count.items,
@@ -352,6 +395,8 @@ export async function GET(
           updatedAt: collection.updatedAt.toISOString(),
         }))
       );
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/collections/[id] (GET - collection detail)
@@ -360,9 +405,15 @@ export async function GET(
       if (auth.response) return auth.response;
 
       const collectionId = path[1];
+      
+      // Validate collection ID format (UUID or string)
+      if (!collectionId || collectionId.trim().length === 0) {
+        return jsonResponse({ error: "Invalid collection ID" }, 400);
+      }
+      
       const collection = await prisma.recipeCollection.findFirst({
         where: {
-          id: collectionId,
+          id: collectionId.trim(),
           userId: auth.userId!,
         },
         include: {
@@ -379,7 +430,7 @@ export async function GET(
         return jsonResponse({ error: "Collection not found" }, 404);
       }
 
-      return jsonResponse({
+      const response = jsonResponse({
         ...collection,
         itemCount: collection._count.items,
         createdAt: collection.createdAt.toISOString(),
@@ -389,6 +440,8 @@ export async function GET(
           createdAt: item.createdAt.toISOString(),
         })),
       });
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Route: /api/collections/[id]/items (GET - collection items)
@@ -397,8 +450,14 @@ export async function GET(
       if (auth.response) return auth.response;
 
       const collectionId = path[1];
+      
+      // Validate collection ID
+      if (!collectionId || collectionId.trim().length === 0) {
+        return jsonResponse({ error: "Invalid collection ID" }, 400);
+      }
+      
       const collection = await prisma.recipeCollection.findFirst({
-        where: { id: collectionId, userId: auth.userId! },
+        where: { id: collectionId.trim(), userId: auth.userId! },
       });
 
       if (!collection) {
@@ -410,12 +469,14 @@ export async function GET(
         orderBy: { order: "asc" },
       });
 
-      return jsonResponse(
+      const response = jsonResponse(
         items.map((item) => ({
           ...item,
           createdAt: item.createdAt.toISOString(),
         }))
       );
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // ============================================
@@ -441,12 +502,19 @@ export async function GET(
         return jsonResponse({ error: "Food name is required" }, 400);
       }
 
+      // Validate food parameter length
+      if (food.trim().length > 100) {
+        return jsonResponse({ error: "Food name must be less than 100 characters" }, 400);
+      }
+
       if (maxPrice !== undefined && (isNaN(maxPrice) || maxPrice < 0)) {
         return jsonResponse({ error: "maxPrice must be a positive number" }, 400);
       }
 
-      const results = await getWinePairing(food, maxPrice);
-      return jsonResponse(results);
+      const results = await getWinePairing(food.trim(), maxPrice);
+      const response = jsonResponse(results);
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // ============================================
@@ -463,11 +531,17 @@ export async function GET(
         return jsonResponse({ error: "Week start date is required" }, 400);
       }
 
+      // Validate date format
+      const weekStartDate = new Date(weekStart);
+      if (isNaN(weekStartDate.getTime())) {
+        return jsonResponse({ error: "Invalid week start date format. Use ISO 8601 format (YYYY-MM-DD)" }, 400);
+      }
+
       const mealPlan = await prisma.mealPlan.findUnique({
         where: {
           userId_weekStart: {
             userId: auth.userId!,
-            weekStart: new Date(weekStart),
+            weekStart: weekStartDate,
           },
         },
         include: {
@@ -481,7 +555,7 @@ export async function GET(
         return jsonResponse({ error: "Meal plan not found" }, 404);
       }
 
-      return jsonResponse({
+      const response = jsonResponse({
         ...mealPlan,
         weekStart: mealPlan.weekStart.toISOString(),
         createdAt: mealPlan.createdAt.toISOString(),
@@ -491,6 +565,8 @@ export async function GET(
           createdAt: meal.createdAt.toISOString(),
         })),
       });
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // ============================================
@@ -507,7 +583,7 @@ export async function GET(
         orderBy: { createdAt: "desc" },
       });
 
-      return jsonResponse(
+      const response = jsonResponse(
         shoppingLists.map((list) => ({
           ...list,
           items: typeof list.items === "string" ? JSON.parse(list.items) : list.items,
@@ -515,6 +591,8 @@ export async function GET(
           updatedAt: list.updatedAt.toISOString(),
         }))
       );
+      response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+      return response;
     }
 
     // Not found
@@ -554,7 +632,24 @@ export async function POST(
 
   const resolvedParams = await params;
   const path = resolvedParams.path || [];
-  const body = await request.json().catch(() => ({}));
+  
+  // Parse request body with size limit protection
+  let body: Record<string, unknown> = {};
+  try {
+    const bodyText = await request.text();
+    // Limit request body size to 10MB
+    if (bodyText.length > 10 * 1024 * 1024) {
+      return new NextResponse(
+        JSON.stringify({ error: "Request body too large. Maximum size is 10MB" }),
+        { status: 413, headers: { ...getCorsHeaders(), "Content-Type": "application/json" } }
+      );
+    }
+    body = bodyText ? JSON.parse(bodyText) : {};
+  } catch (parseError) {
+    if (request.headers.get("content-length") && request.headers.get("content-length") !== "0") {
+      return jsonResponse({ error: "Invalid JSON in request body" }, 400);
+    }
+  }
 
   try {
     // Route: /api/recipes/favourite (POST)
@@ -567,8 +662,14 @@ export async function POST(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const existing = await prisma.favouriteRecipes.findFirst({
-        where: { recipeId: Number(recipeId), userId: auth.userId! },
+        where: { recipeId: recipeIdNum, userId: auth.userId! },
       });
 
       if (existing) {
@@ -577,7 +678,7 @@ export async function POST(
 
       try {
         const favouriteRecipe = await prisma.favouriteRecipes.create({
-          data: { recipeId: Number(recipeId), userId: auth.userId! },
+          data: { recipeId: recipeIdNum, userId: auth.userId! },
           select: { id: true, recipeId: true, userId: true },
         });
         return jsonResponse(favouriteRecipe, 201);
@@ -604,12 +705,22 @@ export async function POST(
         return jsonResponse({ error: "Collection name is required" }, 400);
       }
 
+      // Validate name length
+      if (name.trim().length > 100) {
+        return jsonResponse({ error: "Collection name must be less than 100 characters" }, 400);
+      }
+
+      // Validate description length if provided
+      if (description && description.trim().length > 500) {
+        return jsonResponse({ error: "Collection description must be less than 500 characters" }, 400);
+      }
+
       const collection = await prisma.recipeCollection.create({
         data: {
           userId: auth.userId!,
           name: name.trim(),
-          description: description?.trim(),
-          color,
+          description: description?.trim() || null,
+          color: color || null,
         },
       });
 
@@ -626,8 +737,14 @@ export async function POST(
       if (auth.response) return auth.response;
 
       const collectionId = path[1];
+      
+      // Validate collection ID
+      if (!collectionId || collectionId.trim().length === 0) {
+        return jsonResponse({ error: "Invalid collection ID" }, 400);
+      }
+      
       const collection = await prisma.recipeCollection.findFirst({
-        where: { id: collectionId, userId: auth.userId! },
+        where: { id: collectionId.trim(), userId: auth.userId! },
       });
 
       if (!collection) {
@@ -639,6 +756,17 @@ export async function POST(
         return jsonResponse({ error: "Recipe ID and title are required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
+      // Validate order if provided
+      if (order !== undefined && (isNaN(Number(order)) || Number(order) < 0)) {
+        return jsonResponse({ error: "Order must be a non-negative number" }, 400);
+      }
+
       const maxOrder = await prisma.collectionItem.findFirst({
         where: { collectionId },
         orderBy: { order: "desc" },
@@ -648,10 +776,10 @@ export async function POST(
       const item = await prisma.collectionItem.create({
         data: {
           collectionId,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
           recipeTitle: recipeTitle.trim(),
           recipeImage,
-          order: order ?? (maxOrder?.order ?? 0) + 1,
+          order: order !== undefined ? Number(order) : (maxOrder?.order ?? 0) + 1,
         },
       });
 
@@ -674,16 +802,39 @@ export async function POST(
         }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
+      // Validate day of week (0-6)
+      const dayOfWeekNum = Number(dayOfWeek);
+      if (isNaN(dayOfWeekNum) || dayOfWeekNum < 0 || dayOfWeekNum > 6 || !Number.isInteger(dayOfWeekNum)) {
+        return jsonResponse({ error: "Day of week must be between 0 and 6" }, 400);
+      }
+
+      // Validate servings if provided
+      if (servings !== undefined && (isNaN(Number(servings)) || Number(servings) <= 0)) {
+        return jsonResponse({ error: "Servings must be a positive number" }, 400);
+      }
+
+      // Validate weekStart date
+      const weekStartDate = new Date(weekStart);
+      if (isNaN(weekStartDate.getTime())) {
+        return jsonResponse({ error: "Invalid week start date format" }, 400);
+      }
+
       const mealPlan = await prisma.mealPlan.upsert({
         where: {
           userId_weekStart: {
             userId: auth.userId!,
-            weekStart: new Date(weekStart),
+            weekStart: weekStartDate,
           },
         },
         create: {
           userId: auth.userId!,
-          weekStart: new Date(weekStart),
+          weekStart: weekStartDate,
         },
         update: {},
       });
@@ -691,7 +842,7 @@ export async function POST(
       const maxOrder = await prisma.mealPlanItem.findFirst({
         where: {
           mealPlanId: mealPlan.id,
-          dayOfWeek,
+          dayOfWeek: dayOfWeekNum,
           mealType,
         },
         orderBy: { order: "desc" },
@@ -701,12 +852,12 @@ export async function POST(
       const mealItem = await prisma.mealPlanItem.create({
         data: {
           mealPlanId: mealPlan.id,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
           recipeTitle: recipeTitle.trim(),
           recipeImage,
-          dayOfWeek: Number(dayOfWeek),
+          dayOfWeek: dayOfWeekNum,
           mealType,
-          servings: servings || 1,
+          servings: servings !== undefined ? Number(servings) : 1,
           order: (maxOrder?.order ?? 0) + 1,
         },
       });
@@ -756,7 +907,27 @@ export async function POST(
         return jsonResponse({ error: "Image data is required" }, 400);
       }
 
+      // Validate image data format
+      if (typeof imageData !== "string") {
+        return jsonResponse({ error: "Image data must be a string" }, 400);
+      }
+
+      // Validate base64 data size (max 10MB)
       const base64Data = imageData.includes(",") ? imageData.split(",")[1] : imageData;
+      const imageSizeBytes = (base64Data.length * 3) / 4;
+      const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+      
+      if (imageSizeBytes > maxSizeBytes) {
+        return jsonResponse({ 
+          error: `Image size exceeds maximum of 10MB. Current size: ${(imageSizeBytes / 1024 / 1024).toFixed(2)}MB` 
+        }, 400);
+      }
+
+      // Validate folder name if provided
+      if (folder && (typeof folder !== "string" || folder.length > 200)) {
+        return jsonResponse({ error: "Folder name must be a string less than 200 characters" }, 400);
+      }
+
       const uploadOptions: { folder?: string; [key: string]: unknown } = {
         folder: folder || `recipe-app/${auth.userId}`,
       };
@@ -786,10 +957,36 @@ export async function POST(
         }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
+      // Validate image URL format
+      try {
+        new URL(imageUrl);
+      } catch {
+        return jsonResponse({ error: "Invalid image URL format" }, 400);
+      }
+
+      // Validate image type
+      const validImageTypes = ["main", "step", "ingredient", "other"];
+      if (!validImageTypes.includes(imageType)) {
+        return jsonResponse({ 
+          error: `Invalid image type. Must be one of: ${validImageTypes.join(", ")}` 
+        }, 400);
+      }
+
+      // Validate order if provided
+      if (order !== undefined && (isNaN(Number(order)) || Number(order) < 0)) {
+        return jsonResponse({ error: "Order must be a non-negative number" }, 400);
+      }
+
       const maxOrder = await prisma.recipeImage.findFirst({
         where: {
           userId: auth.userId!,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
           imageType,
         },
         orderBy: { order: "desc" },
@@ -799,10 +996,10 @@ export async function POST(
       const image = await prisma.recipeImage.create({
         data: {
           userId: auth.userId!,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
           imageUrl,
           imageType,
-          order: order ?? (maxOrder?.order ?? 0) + 1,
+          order: order !== undefined ? Number(order) : (maxOrder?.order ?? 0) + 1,
           caption: caption?.trim(),
         },
       });
@@ -823,33 +1020,60 @@ export async function POST(
       if (!recipeId) {
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
+
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       if (!content || !content.trim()) {
         return jsonResponse({ error: "Note content is required" }, 400);
       }
-      if (rating !== undefined && (rating < 1 || rating > 5)) {
-        return jsonResponse({ error: "Rating must be between 1 and 5" }, 400);
+
+      // Validate content length
+      if (content.trim().length > 10000) {
+        return jsonResponse({ error: "Note content must be less than 10,000 characters" }, 400);
+      }
+
+      // Validate title length if provided
+      if (title && title.trim().length > 200) {
+        return jsonResponse({ error: "Note title must be less than 200 characters" }, 400);
+      }
+
+      // Validate rating
+      if (rating !== undefined) {
+        const ratingNum = Number(rating);
+        if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5 || !Number.isInteger(ratingNum)) {
+          return jsonResponse({ error: "Rating must be an integer between 1 and 5" }, 400);
+        }
+      }
+
+      // Validate tags if provided
+      if (tags !== undefined && (!Array.isArray(tags) || tags.length > 20)) {
+        return jsonResponse({ error: "Tags must be an array with maximum 20 items" }, 400);
       }
 
       const note = await prisma.recipeNote.upsert({
         where: {
           userId_recipeId: {
             userId: auth.userId!,
-            recipeId: Number(recipeId),
+            recipeId: recipeIdNum,
           },
         },
         update: {
           title: title?.trim(),
           content: content.trim(),
-          rating,
-          tags: tags || [],
+          rating: rating !== undefined ? Number(rating) : undefined,
+          tags: Array.isArray(tags) ? tags.slice(0, 20) : [],
         },
         create: {
           userId: auth.userId!,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
           title: title?.trim(),
           content: content.trim(),
-          rating,
-          tags: tags || [],
+          rating: rating !== undefined ? Number(rating) : undefined,
+          tags: Array.isArray(tags) ? tags.slice(0, 20) : [],
         },
       });
 
@@ -893,7 +1117,24 @@ export async function PUT(
 
   const resolvedParams = await params;
   const path = resolvedParams.path || [];
-  const body = await request.json().catch(() => ({}));
+  
+  // Parse request body with size limit protection
+  let body: Record<string, unknown> = {};
+  try {
+    const bodyText = await request.text();
+    // Limit request body size to 10MB
+    if (bodyText.length > 10 * 1024 * 1024) {
+      return new NextResponse(
+        JSON.stringify({ error: "Request body too large. Maximum size is 10MB" }),
+        { status: 413, headers: { ...getCorsHeaders(), "Content-Type": "application/json" } }
+      );
+    }
+    body = bodyText ? JSON.parse(bodyText) : {};
+  } catch (parseError) {
+    if (request.headers.get("content-length") && request.headers.get("content-length") !== "0") {
+      return jsonResponse({ error: "Invalid JSON in request body" }, 400);
+    }
+  }
 
   try {
     // Route: /api/collections/[id] (PUT - update collection)
@@ -941,8 +1182,13 @@ export async function PUT(
         return jsonResponse({ error: "Shopping list ID is required" }, 400);
       }
 
+      // Validate shopping list ID
+      if (typeof id !== "string" && typeof id !== "number") {
+        return jsonResponse({ error: "Invalid shopping list ID format" }, 400);
+      }
+
       const existing = await prisma.shoppingList.findFirst({
-        where: { id, userId: auth.userId! },
+        where: { id: String(id), userId: auth.userId! },
       });
 
       if (!existing) {
@@ -954,12 +1200,33 @@ export async function PUT(
         items?: ShoppingListItem[];
         isCompleted?: boolean;
       } = {};
-      if (name !== undefined) updates.name = name.trim();
-      if (items !== undefined) updates.items = items;
-      if (isCompleted !== undefined) updates.isCompleted = isCompleted;
+      
+      if (name !== undefined) {
+        if (typeof name !== "string" || name.trim().length === 0) {
+          return jsonResponse({ error: "Name must be a non-empty string" }, 400);
+        }
+        if (name.trim().length > 200) {
+          return jsonResponse({ error: "Name must be less than 200 characters" }, 400);
+        }
+        updates.name = name.trim();
+      }
+      
+      if (items !== undefined) {
+        if (!Array.isArray(items)) {
+          return jsonResponse({ error: "Items must be an array" }, 400);
+        }
+        updates.items = items;
+      }
+      
+      if (isCompleted !== undefined) {
+        if (typeof isCompleted !== "boolean") {
+          return jsonResponse({ error: "isCompleted must be a boolean" }, 400);
+        }
+        updates.isCompleted = isCompleted;
+      }
 
       const updated = await prisma.shoppingList.update({
-        where: { id },
+        where: { id: String(id) },
         data: updates,
       });
 
@@ -1004,7 +1271,24 @@ export async function DELETE(
 
   const resolvedParams = await params;
   const path = resolvedParams.path || [];
-  const body = await request.json().catch(() => ({}));
+  
+  // Parse request body with size limit protection
+  let body: Record<string, unknown> = {};
+  try {
+    const bodyText = await request.text();
+    // Limit request body size to 10MB
+    if (bodyText.length > 10 * 1024 * 1024) {
+      return new NextResponse(
+        JSON.stringify({ error: "Request body too large. Maximum size is 10MB" }),
+        { status: 413, headers: { ...getCorsHeaders(), "Content-Type": "application/json" } }
+      );
+    }
+    body = bodyText ? JSON.parse(bodyText) : {};
+  } catch (parseError) {
+    if (request.headers.get("content-length") && request.headers.get("content-length") !== "0") {
+      return jsonResponse({ error: "Invalid JSON in request body" }, 400);
+    }
+  }
 
   try {
     // Route: /api/recipes/favourite (DELETE)
@@ -1017,8 +1301,14 @@ export async function DELETE(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const existing = await prisma.favouriteRecipes.findFirst({
-        where: { recipeId: Number(recipeId), userId: auth.userId! },
+        where: { recipeId: recipeIdNum, userId: auth.userId! },
       });
 
       if (existing) {
@@ -1054,8 +1344,14 @@ export async function DELETE(
       if (auth.response) return auth.response;
 
       const collectionId = path[1];
+      
+      // Validate collection ID
+      if (!collectionId || collectionId.trim().length === 0) {
+        return jsonResponse({ error: "Invalid collection ID" }, 400);
+      }
+      
       const collection = await prisma.recipeCollection.findFirst({
-        where: { id: collectionId, userId: auth.userId! },
+        where: { id: collectionId.trim(), userId: auth.userId! },
       });
 
       if (!collection) {
@@ -1117,8 +1413,13 @@ export async function DELETE(
         return jsonResponse({ error: "Shopping list ID is required" }, 400);
       }
 
+      // Validate ID format
+      if (typeof id !== "string" && typeof id !== "number") {
+        return jsonResponse({ error: "Invalid shopping list ID format" }, 400);
+      }
+
       const existing = await prisma.shoppingList.findFirst({
-        where: { id, userId: auth.userId! },
+        where: { id: String(id), userId: auth.userId! },
       });
 
       if (!existing) {
@@ -1126,7 +1427,7 @@ export async function DELETE(
       }
 
       await prisma.shoppingList.delete({
-        where: { id },
+        where: { id: String(id) },
       });
 
       return new NextResponse(null, { status: 204, headers: getCorsHeaders() });
@@ -1142,8 +1443,13 @@ export async function DELETE(
         return jsonResponse({ error: "Image ID is required" }, 400);
       }
 
+      // Validate ID format
+      if (typeof id !== "string" && typeof id !== "number") {
+        return jsonResponse({ error: "Invalid image ID format" }, 400);
+      }
+
       const existing = await prisma.recipeImage.findFirst({
-        where: { id, userId: auth.userId! },
+        where: { id: String(id), userId: auth.userId! },
       });
 
       if (!existing) {
@@ -1151,7 +1457,7 @@ export async function DELETE(
       }
 
       await prisma.recipeImage.delete({
-        where: { id },
+        where: { id: String(id) },
       });
 
       return new NextResponse(null, { status: 204, headers: getCorsHeaders() });
@@ -1167,10 +1473,16 @@ export async function DELETE(
         return jsonResponse({ error: "Recipe ID is required" }, 400);
       }
 
+      // Validate recipe ID
+      const recipeIdNum = Number(recipeId);
+      if (isNaN(recipeIdNum) || recipeIdNum <= 0 || !Number.isInteger(recipeIdNum)) {
+        return jsonResponse({ error: "Invalid recipe ID format" }, 400);
+      }
+
       const deleted = await prisma.recipeNote.deleteMany({
         where: {
           userId: auth.userId!,
-          recipeId: Number(recipeId),
+          recipeId: recipeIdNum,
         },
       });
 
