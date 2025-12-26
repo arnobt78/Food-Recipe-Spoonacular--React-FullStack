@@ -2,6 +2,8 @@
 
 A modern React + TypeScript frontend for a full-stack recipe management application. This UI lets users search for recipes, view details, and manage favourites, with a beautiful, responsive design and seamless backend integration.
 
+- **Live-Demo:** [https://recipe-smart.vercel.app/](https://recipe-smart.vercel.app/)
+
 ---
 
 ## Table of Contents
