@@ -16,7 +16,7 @@ import {
   UseMutationResult,
 } from "@tanstack/react-query";
 import * as api from "../api";
-import { Recipe, SearchRecipesResponse, RecipeInformation, SimilarRecipe, AutocompleteRecipe, DishPairingForWine, WinePairing } from "../types";
+import { Recipe, SearchRecipesResponse, RecipeInformation, SimilarRecipe, AutocompleteRecipe, DishPairingForWine, WinePairing, RecipeRecommendationResponse, RecipeAnalysisResponse, RecipeModificationResponse } from "../types";
 import { toast } from "sonner";
 import { invalidateFavouritesQueries } from "../utils/queryInvalidation";
 import {
@@ -347,6 +347,135 @@ export function useAutocompleteRecipes(
     gcTime: 10 * 60 * 1000,
     retry: 1,
     refetchOnMount: false, // Don't refetch on mount for autocomplete
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
+ * Hook for AI-powered natural language recipe search
+ * 
+ * Uses OpenRouter AI (Claude/GPT) to understand natural language queries
+ * and convert them into optimized Spoonacular API search parameters
+ * 
+ * Caching Behavior:
+ * - First call: Fetches from API
+ * - Subsequent calls: Uses cache (no API call)
+ * - After invalidation: Refetches from API once, then uses cache again
+ * 
+ * @param query - Natural language search query (e.g., "healthy pasta for dinner")
+ * @param enabled - Whether to enable the query (default: true)
+ * @returns Query result with data, isLoading, error, etc.
+ */
+export function useAISearchRecipes(
+  query: string,
+  enabled: boolean = true
+) {
+  return useQuery<SearchRecipesResponse, Error>({
+    queryKey: ["recipes", "ai-search", query],
+    queryFn: () => api.aiSearchRecipes(query),
+    enabled: enabled && query.trim().length >= 3,
+    staleTime: Infinity, // Cache AI search results forever (same query = same results)
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnMount: true,
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
+ * Hook for AI-powered recipe recommendations
+ * 
+ * Uses Gemini/Groq AI to generate personalized recipe recommendations
+ * based on user preferences, available ingredients, dietary restrictions, etc.
+ * 
+ * Caching Behavior:
+ * - First call: Fetches from API
+ * - Subsequent calls: Uses cache (no API call)
+ * - After invalidation: Refetches from API once, then uses cache again
+ * 
+ * @param options - Recommendation options (query, ingredients, diet, cuisine, etc.)
+ * @param enabled - Whether to enable the query (default: true)
+ * @returns Query result with recommended recipes and AI explanation
+ */
+export function useRecipeRecommendations(
+  options: {
+    query?: string;
+    ingredients?: string;
+    diet?: string;
+    cuisine?: string;
+    maxTime?: number;
+    excludeIngredients?: string;
+  },
+  enabled: boolean = true
+) {
+  // Only enable if at least query or ingredients is provided
+  const shouldEnable = enabled && (options.query?.trim() || options.ingredients?.trim());
+
+  return useQuery<RecipeRecommendationResponse, Error>({
+    queryKey: ["recipes", "ai-recommendations", options],
+    queryFn: () => api.getRecipeRecommendations(options),
+    enabled: shouldEnable,
+    staleTime: Infinity, // Cache recommendations forever (same inputs = same recommendations)
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnMount: true,
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
+ * Hook for AI-powered recipe analysis
+ * 
+ * Uses OpenRouter/Gemini/Hugging Face AI to analyze recipes for nutrition, health, substitutions, allergens, etc.
+ * 
+ * Caching Behavior:
+ * - First call: Fetches from API
+ * - Subsequent calls: Uses cache (no API call)
+ * - After invalidation: Refetches from API once, then uses cache again
+ * 
+ * @param recipeId - Recipe ID to analyze
+ * @param enabled - Whether to enable the query (default: true)
+ * @returns Query result with comprehensive recipe analysis
+ */
+export function useRecipeAnalysis(
+  recipeId: string | number | undefined,
+  enabled: boolean = true
+) {
+  return useQuery<RecipeAnalysisResponse, Error>({
+    queryKey: ["recipes", "ai-analysis", recipeId],
+    queryFn: () => api.getRecipeAnalysis(recipeId!),
+    enabled: enabled && !!recipeId,
+    staleTime: Infinity, // Cache analysis forever (same recipe = same analysis)
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnMount: true,
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
+ * Hook to get recipe modifications (dietary conversion or simplification)
+ *
+ * @param recipeId - Recipe ID
+ * @param type - Modification type: "dietary" or "simplify"
+ * @param diet - Target diet for dietary conversion
+ * @param enabled - Whether to enable the query
+ * @returns React Query hook result
+ */
+export function useRecipeModification(
+  recipeId: string | number | undefined,
+  type: "dietary" | "simplify",
+  diet?: string,
+  enabled: boolean = true
+) {
+  return useQuery<RecipeModificationResponse, Error>({
+    queryKey: ["recipes", "ai-modifications", recipeId, type, diet],
+    queryFn: () => api.getRecipeModification(recipeId!, type, diet),
+    enabled: enabled && !!recipeId,
+    staleTime: Infinity, // Cache modifications forever (same recipe + type + diet = same result)
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnMount: false,
     placeholderData: (previousData) => previousData,
   });
 }

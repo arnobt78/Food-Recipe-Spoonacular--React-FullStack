@@ -4,7 +4,7 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Auth0Provider } from "@auth0/auth0-react";
 import { Toaster } from "sonner";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 import { setupCachePersistence } from "@/utils/queryCachePersistence";
 import { setupDevConsole } from "@/utils/devConsole";
 import "@/global.css";

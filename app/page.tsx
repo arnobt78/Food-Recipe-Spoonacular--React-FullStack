@@ -2,7 +2,7 @@
 
 import { AuthProvider } from "@/context/AuthContext";
 import { RecipeProvider } from "@/context/RecipeContext";
-import AppContent from "@/components/AppContent";
+import AppContent from "@/components/layout/AppContent";
 
 /**
  * Home Page

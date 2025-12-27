@@ -273,6 +273,27 @@ export interface SimilarRecipe {
 }
 
 /**
+ * Recipe Modification Response interface
+ * Contains AI-generated recipe modifications (dietary conversion or simplification)
+ */
+export interface RecipeModificationResponse {
+  modifiedIngredients?: Array<{
+    original: string;
+    substitute: string;
+    reason?: string;
+  }>;
+  modifiedInstructions?: string;
+  explanation?: string;
+  simplifiedIngredients?: Array<{
+    original: string;
+    simplified: string;
+    reason?: string;
+  }>;
+  simplifiedInstructions?: string;
+  tips?: string[];
+}
+
+/**
  * Search Recipes Response interface
  * Matches Spoonacular API search endpoint response
  */
@@ -284,6 +305,55 @@ export interface SearchRecipesResponse {
   totalResults?: number;
   offset?: number;
   number?: number;
+  aiOptimized?: boolean; // Indicates if search was AI-optimized
+  originalQuery?: string; // Original natural language query
+  searchParams?: Record<string, unknown>; // AI-extracted search parameters
+}
+
+/**
+ * Recipe Recommendation Response interface
+ * Contains AI-generated recipe recommendations with context
+ */
+export interface RecipeRecommendationResponse {
+  recipes: Recipe[];
+  reason?: string; // AI explanation for why these recipes were recommended
+  context?: string; // Context used for recommendations (dietary preferences, ingredients, etc.)
+}
+
+/**
+ * Recipe Analysis Response interface
+ * Contains AI-generated recipe analysis including nutrition, health score, substitutions, allergens, etc.
+ */
+export interface RecipeAnalysisResponse {
+  healthScore?: {
+    score: number; // 0-100 health score
+    explanation?: string; // AI explanation of health score
+  };
+  nutritionAnalysis?: {
+    summary?: string; // Overall nutrition summary
+    strengths?: string[]; // Positive nutritional aspects
+    concerns?: string[]; // Areas for improvement
+  };
+  ingredientSubstitutions?: Array<{
+    original: string; // Original ingredient name
+    substitute: string; // Suggested substitute
+    reason?: string; // Why this substitution is recommended
+    dietaryBenefit?: string; // Dietary benefit of substitution
+  }>;
+  allergens?: Array<{
+    allergen: string; // Allergen name (e.g., "gluten", "dairy", "nuts")
+    severity: "low" | "medium" | "high"; // Severity level
+    sources?: string[]; // Ingredients that contain this allergen
+  }>;
+  cookingDifficulty?: {
+    level: "beginner" | "intermediate" | "advanced"; // Difficulty level
+    explanation?: string; // Why this difficulty level
+    tips?: string[]; // Tips for cooking this recipe
+  };
+  timeValidation?: {
+    estimatedTime?: number; // AI-estimated cooking time in minutes
+    discrepancy?: string; // If there's a discrepancy with recipe time
+  };
 }
 
 /**

@@ -16,6 +16,9 @@ import {
   ShoppingList,
   ShoppingListItem,
   RecipeImage,
+  RecipeRecommendationResponse,
+  RecipeAnalysisResponse,
+  RecipeModificationResponse,
 } from "./types";
 
 // Use relative paths for API calls - works with Next.js API routes
@@ -640,6 +643,140 @@ export const autocompleteRecipes = async (
 };
 
 /**
+ * AI-powered natural language recipe search
+ * Uses OpenRouter AI (Claude/GPT) to understand natural language queries
+ * and convert them into optimized Spoonacular API search parameters
+ * 
+ * @param query - Natural language search query (e.g., "healthy pasta for dinner")
+ * @returns Promise with search results (same format as searchRecipes)
+ * @throws Error if request fails
+ */
+export const aiSearchRecipes = async (
+  query: string
+): Promise<SearchRecipesResponse> => {
+  if (!query || query.trim().length < 3) {
+    throw new Error("Query must be at least 3 characters");
+  }
+
+  const apiPath = getApiUrl(
+    `/api/ai/search?query=${encodeURIComponent(query.trim())}`
+  );
+  
+  const response = await fetch(apiPath);
+
+  if (!response.ok) {
+    const errorMessage = await extractErrorMessage(
+      response,
+      `Failed to perform AI search. Status: ${response.status}`
+    );
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<SearchRecipesResponse>;
+};
+
+/**
+ * Get AI-powered recipe recommendations
+ * Uses Gemini/Groq AI to generate personalized recipe recommendations
+ * based on user preferences, available ingredients, dietary restrictions, etc.
+ * 
+ * @param options - Recommendation options (query, ingredients, diet, cuisine, etc.)
+ * @returns Promise with recommended recipes and AI explanation
+ * @throws Error if request fails
+ */
+export const getRecipeRecommendations = async (options: {
+  query?: string;
+  ingredients?: string;
+  diet?: string;
+  cuisine?: string;
+  maxTime?: number;
+  excludeIngredients?: string;
+}): Promise<RecipeRecommendationResponse> => {
+  const params = new URLSearchParams();
+  if (options.query) params.append("query", options.query);
+  if (options.ingredients) params.append("ingredients", options.ingredients);
+  if (options.diet) params.append("diet", options.diet);
+  if (options.cuisine) params.append("cuisine", options.cuisine);
+  if (options.maxTime) params.append("maxTime", options.maxTime.toString());
+  if (options.excludeIngredients) params.append("excludeIngredients", options.excludeIngredients);
+
+  const apiPath = getApiUrl(`/api/ai/recommendations?${params.toString()}`);
+  
+  const response = await fetch(apiPath);
+
+  if (!response.ok) {
+    const errorMessage = await extractErrorMessage(
+      response,
+      `Failed to get recipe recommendations. Status: ${response.status}`
+    );
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<RecipeRecommendationResponse>;
+};
+
+/**
+ * Get AI-powered recipe analysis
+ * Uses OpenRouter/Gemini/Hugging Face AI to analyze recipes for nutrition, health, substitutions, allergens, etc.
+ * 
+ * @param recipeId - Recipe ID to analyze
+ * @returns Promise with comprehensive recipe analysis
+ * @throws Error if request fails
+ */
+export const getRecipeAnalysis = async (
+  recipeId: number | string
+): Promise<RecipeAnalysisResponse> => {
+  const apiPath = getApiUrl(`/api/ai/analysis?recipeId=${encodeURIComponent(recipeId)}`);
+  
+  const response = await fetch(apiPath);
+
+  if (!response.ok) {
+    const errorMessage = await extractErrorMessage(
+      response,
+      `Failed to get recipe analysis. Status: ${response.status}`
+    );
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<RecipeAnalysisResponse>;
+};
+
+/**
+ * Get recipe modifications (dietary conversion or simplification)
+ *
+ * @param recipeId - Recipe ID string or number
+ * @param type - Modification type: "dietary" or "simplify"
+ * @param diet - Target diet for dietary conversion (e.g., "vegan", "keto", "gluten-free")
+ * @returns Promise with recipe modification data
+ * @throws Error if request fails
+ */
+export const getRecipeModification = async (
+  recipeId: string | number,
+  type: "dietary" | "simplify",
+  diet?: string
+): Promise<RecipeModificationResponse> => {
+  const params = new URLSearchParams({
+    recipeId: String(recipeId),
+    type,
+  });
+  if (diet && type === "dietary") {
+    params.append("diet", diet);
+  }
+  const apiPath = getApiUrl(`/api/ai/modifications?${params.toString()}`);
+  const response = await fetch(apiPath);
+
+  if (!response.ok) {
+    const errorMessage = await extractErrorMessage(
+      response,
+      `Failed to get recipe modification. Status: ${response.status}`
+    );
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<RecipeModificationResponse>;
+};
+
+/**
  * Get dish pairing for wine
  * Finds dishes that go well with a given wine type
  * 
@@ -744,9 +881,7 @@ export const addFavouriteRecipe = async (recipe: Recipe): Promise<void> => {
   // If API_URL is set, apiPath is already a full URL
   const response = await fetch(apiPath, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getAuthHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -776,9 +911,7 @@ export const removeFavouriteRecipe = async (recipe: Recipe): Promise<void> => {
   // If API_URL is set, apiPath is already a full URL
   const response = await fetch(apiPath, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getAuthHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -1068,10 +1201,6 @@ export const getRecipeNote = async (
     headers: await getAuthHeaders(),
   });
 
-  if (response.status === 404) {
-    return null;
-  }
-
   if (!response.ok) {
     if (response.status === 401) {
       throw new Error("User not authenticated");
@@ -1083,7 +1212,9 @@ export const getRecipeNote = async (
     throw new Error(errorMessage);
   }
 
-  return response.json() as Promise<RecipeNote>;
+  const data = await response.json();
+  // API now returns null instead of 404 when note doesn't exist
+  return data as RecipeNote | null;
 };
 
 /**

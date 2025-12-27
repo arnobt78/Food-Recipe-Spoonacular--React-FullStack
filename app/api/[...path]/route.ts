@@ -291,6 +291,1161 @@ export async function GET(
       return response;
     }
 
+    // Route: /api/ai/search - AI-powered natural language recipe search
+    if (path[0] === "ai" && path[1] === "search") {
+      const query = searchParams.get("query");
+      if (!query || query.trim().length < 3) {
+        return jsonResponse(
+          { error: "Query must be at least 3 characters" },
+          400
+        );
+      }
+
+      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
+      const groqApiKey = process.env.GROQ_LLAMA_API_KEY;
+
+      if (!openRouterApiKey && !geminiApiKey && !groqApiKey) {
+        return jsonResponse(
+          {
+            error:
+              "No AI API keys configured (OpenRouter, Gemini, or Groq required)",
+          },
+          500
+        );
+      }
+
+      try {
+        // System prompt for recipe search conversion
+        const systemPrompt =
+          "You are a recipe search assistant. Convert natural language queries into optimized recipe search terms for the Spoonacular API. Extract key information like: dish type, dietary requirements, ingredients, cooking time, cuisine type, meal type. Return ONLY a JSON object with these fields: { searchTerm: string, diet?: string, cuisine?: string, maxReadyTime?: number, type?: string, excludeIngredients?: string, includeIngredients?: string }";
+        const userPrompt = `Convert this recipe search query into optimized search parameters: "${query.trim()}"`;
+
+        let aiContent = "{}";
+        let searchParams: any = null;
+
+        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
+        // Try OpenRouter with Claude first
+        if (openRouterApiKey) {
+          try {
+            const aiResponse = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${openRouterApiKey}`,
+                  "HTTP-Referer":
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+                  "X-Title": "Recipe Smart App",
+                },
+                body: JSON.stringify({
+                  model: "anthropic/claude-3.5-sonnet",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                  ],
+                  temperature: 0.3,
+                  max_tokens: 200,
+                }),
+              }
+            );
+
+            if (aiResponse.ok) {
+              const aiData = await aiResponse.json();
+              aiContent = aiData.choices?.[0]?.message?.content || "{}";
+              try {
+                searchParams = JSON.parse(aiContent);
+              } catch {
+                // Try parsing with regex if direct parse fails
+                const jsonMatch = aiContent.match(/{[\s\S]*}/);
+                if (jsonMatch) searchParams = JSON.parse(jsonMatch[0]);
+              }
+            }
+          } catch (openRouterError) {
+            console.warn(
+              "OpenRouter Claude failed, trying GPT fallback:",
+              openRouterError
+            );
+          }
+
+          // If Claude failed, try GPT-4o-mini on OpenRouter
+          if (!searchParams && openRouterApiKey) {
+            try {
+              const fallbackResponse = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openRouterApiKey}`,
+                    "HTTP-Referer":
+                      process.env.NEXT_PUBLIC_API_URL ||
+                      "http://localhost:3000",
+                    "X-Title": "Recipe Smart App",
+                  },
+                  body: JSON.stringify({
+                    model: "openai/gpt-4o-mini",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: userPrompt },
+                    ],
+                    temperature: 0.3,
+                    max_tokens: 200,
+                  }),
+                }
+              );
+
+              if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                aiContent = fallbackData.choices?.[0]?.message?.content || "{}";
+                try {
+                  searchParams = JSON.parse(aiContent);
+                } catch {
+                  const jsonMatch = aiContent.match(/{[\s\S]*}/);
+                  if (jsonMatch) searchParams = JSON.parse(jsonMatch[0]);
+                }
+              }
+            } catch (gptError) {
+              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
+            }
+          }
+        }
+
+        // Fallback to Gemini if OpenRouter failed
+        if (!searchParams && geminiApiKey) {
+          try {
+            const geminiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+                    },
+                  ],
+                  generationConfig: {
+                    temperature: 0.3,
+                    maxOutputTokens: 200,
+                  },
+                }),
+              }
+            );
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json();
+              aiContent =
+                geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                searchParams = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, will use fallback below
+              }
+            }
+          } catch (geminiError) {
+            console.warn("Gemini failed, trying Groq:", geminiError);
+          }
+        }
+
+        // Final fallback to Groq
+        if (!searchParams && groqApiKey) {
+          try {
+            const groqResponse = await fetch(
+              "https://api.groq.com/openai/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${groqApiKey}`,
+                },
+                body: JSON.stringify({
+                  model: "llama-3.1-70b-versatile",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                  ],
+                  temperature: 0.3,
+                  max_tokens: 200,
+                }),
+              }
+            );
+
+            if (groqResponse.ok) {
+              const groqData = await groqResponse.json();
+              aiContent = groqData.choices?.[0]?.message?.content || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                searchParams = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, will use fallback below
+              }
+            }
+          } catch (groqError) {
+            console.warn("Groq failed, using simple fallback:", groqError);
+          }
+        }
+
+        // If all AI providers failed, use simple fallback
+        if (!searchParams) {
+          searchParams = { searchTerm: query.trim() };
+        }
+
+        // Perform search with AI-optimized parameters
+        const searchOptions: Parameters<typeof searchRecipes>[2] = {};
+        if (searchParams.diet) searchOptions.diet = searchParams.diet;
+        if (searchParams.cuisine) searchOptions.cuisine = searchParams.cuisine;
+        if (searchParams.maxReadyTime)
+          searchOptions.maxReadyTime = searchParams.maxReadyTime;
+        if (searchParams.type) searchOptions.type = searchParams.type;
+        if (searchParams.excludeIngredients)
+          searchOptions.excludeIngredients = searchParams.excludeIngredients;
+        if (searchParams.includeIngredients)
+          searchOptions.includeIngredients = searchParams.includeIngredients;
+
+        const results = await searchRecipes(
+          searchParams.searchTerm || query.trim(),
+          1,
+          Object.keys(searchOptions).length > 0 ? searchOptions : undefined
+        );
+
+        const response = jsonResponse({
+          results: results.results || [],
+          totalResults: results.totalResults || 0,
+          offset: results.offset || 0,
+          number: results.number || 0,
+          aiOptimized: true,
+          originalQuery: query.trim(),
+          searchParams: searchParams,
+        });
+        response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+        return response;
+      } catch (error) {
+        console.error("AI search error:", error);
+        return jsonResponse(
+          {
+            error: "AI search failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    }
+
+    // Route: /api/ai/recommendations - AI-powered recipe recommendations
+    if (path[0] === "ai" && path[1] === "recommendations") {
+      // Support both GET (query params) and POST (body) for flexibility
+      let query = searchParams.get("query") || "";
+      let ingredients = searchParams.get("ingredients");
+      let diet = searchParams.get("diet");
+      let cuisine = searchParams.get("cuisine");
+      let maxTime = searchParams.get("maxTime");
+      let excludeIngredients = searchParams.get("excludeIngredients");
+
+      // If POST request, also check body for parameters (body takes precedence)
+      if (request.method === "POST") {
+        try {
+          const body = await request.json().catch(() => ({}));
+          if (body.query) query = body.query;
+          if (body.ingredients) ingredients = body.ingredients;
+          if (body.diet) diet = body.diet;
+          if (body.cuisine) cuisine = body.cuisine;
+          if (body.maxTime) maxTime = body.maxTime?.toString();
+          if (body.excludeIngredients)
+            excludeIngredients = body.excludeIngredients;
+        } catch (e) {
+          // If body parsing fails, use query params only
+        }
+      }
+
+      // At least query or ingredients must be provided
+      if (!query.trim() && !ingredients?.trim()) {
+        return jsonResponse(
+          { error: "Either query or ingredients parameter is required" },
+          400
+        );
+      }
+
+      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
+      const groqApiKey = process.env.GROQ_LLAMA_API_KEY;
+
+      if (!openRouterApiKey && !geminiApiKey && !groqApiKey) {
+        return jsonResponse(
+          {
+            error:
+              "No AI API keys configured (OpenRouter, Gemini, or Groq required)",
+          },
+          500
+        );
+      }
+
+      try {
+        // Build context for AI recommendation
+        let recommendationContext = "";
+        if (query.trim()) {
+          recommendationContext += `User request: "${query.trim()}"\n`;
+        }
+        if (ingredients?.trim()) {
+          recommendationContext += `Available ingredients: ${ingredients.trim()}\n`;
+        }
+        if (diet?.trim()) {
+          recommendationContext += `Dietary preference: ${diet.trim()}\n`;
+        }
+        if (cuisine?.trim()) {
+          recommendationContext += `Cuisine preference: ${cuisine.trim()}\n`;
+        }
+        if (maxTime?.trim()) {
+          recommendationContext += `Maximum cooking time: ${maxTime.trim()} minutes\n`;
+        }
+        if (excludeIngredients?.trim()) {
+          recommendationContext += `Exclude ingredients: ${excludeIngredients.trim()}\n`;
+        }
+
+        const systemPrompt =
+          "You are a recipe recommendation assistant. Based on the user's context, generate a JSON object with search parameters optimized for the Spoonacular recipe API. Return ONLY a JSON object with these fields: { searchTerm: string, diet?: string, cuisine?: string, maxReadyTime?: number, includeIngredients?: string, excludeIngredients?: string, type?: string, number?: number (default 10) }";
+        const fullPrompt = recommendationContext + `\n${systemPrompt}`;
+
+        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
+        let aiResponseData: any = null;
+
+        // Try OpenRouter with Claude first
+        if (openRouterApiKey && !aiResponseData) {
+          try {
+            const openRouterResponse = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${openRouterApiKey}`,
+                  "HTTP-Referer":
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+                  "X-Title": "Recipe Smart App",
+                },
+                body: JSON.stringify({
+                  model: "anthropic/claude-3.5-sonnet",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: recommendationContext },
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 200,
+                }),
+              }
+            );
+
+            if (openRouterResponse.ok) {
+              const openRouterData = await openRouterResponse.json();
+              const aiContent =
+                openRouterData.choices?.[0]?.message?.content || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                aiResponseData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, will try next provider
+              }
+            }
+          } catch (openRouterError) {
+            console.warn(
+              "OpenRouter Claude failed, trying GPT:",
+              openRouterError
+            );
+          }
+
+          // If Claude failed, try GPT-4o-mini on OpenRouter
+          if (!aiResponseData && openRouterApiKey) {
+            try {
+              const gptResponse = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openRouterApiKey}`,
+                    "HTTP-Referer":
+                      process.env.NEXT_PUBLIC_API_URL ||
+                      "http://localhost:3000",
+                    "X-Title": "Recipe Smart App",
+                  },
+                  body: JSON.stringify({
+                    model: "openai/gpt-4o-mini",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: recommendationContext },
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 200,
+                  }),
+                }
+              );
+
+              if (gptResponse.ok) {
+                const gptData = await gptResponse.json();
+                const aiContent =
+                  gptData.choices?.[0]?.message?.content || "{}";
+                try {
+                  const jsonMatch =
+                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                    aiContent.match(/{[\s\S]*}/);
+                  aiResponseData = JSON.parse(
+                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                  );
+                } catch {
+                  // Parse failed, will try next provider
+                }
+              }
+            } catch (gptError) {
+              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
+            }
+          }
+        }
+
+        // Fallback to Gemini if OpenRouter failed
+        if (!aiResponseData && geminiApiKey) {
+          try {
+            const geminiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [{ text: fullPrompt }],
+                    },
+                  ],
+                  generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 200,
+                  },
+                }),
+              }
+            );
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json();
+              const aiContent =
+                geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                aiResponseData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, will try next provider
+              }
+            }
+          } catch (geminiError) {
+            console.warn("Gemini failed, trying Groq:", geminiError);
+          }
+        }
+
+        // Final fallback to Groq
+        if (!aiResponseData && groqApiKey) {
+          try {
+            const groqResponse = await fetch(
+              "https://api.groq.com/openai/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${groqApiKey}`,
+                },
+                body: JSON.stringify({
+                  model: "llama-3.1-70b-versatile",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: recommendationContext },
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 200,
+                }),
+              }
+            );
+
+            if (groqResponse.ok) {
+              const groqData = await groqResponse.json();
+              const aiContent = groqData.choices?.[0]?.message?.content || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                aiResponseData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, will use fallback below
+              }
+            }
+          } catch (groqError) {
+            console.warn("Groq failed, using simple fallback:", groqError);
+          }
+        }
+
+        // If all AI providers failed, use simple fallback
+        if (!aiResponseData) {
+          aiResponseData = {
+            searchTerm: query.trim() || ingredients?.trim() || "recipes",
+            number: 10,
+          };
+          if (diet) aiResponseData.diet = diet;
+          if (cuisine) aiResponseData.cuisine = cuisine;
+          if (maxTime) aiResponseData.maxReadyTime = parseInt(maxTime, 10);
+          if (ingredients) aiResponseData.includeIngredients = ingredients;
+          if (excludeIngredients)
+            aiResponseData.excludeIngredients = excludeIngredients;
+        }
+
+        // Perform search with AI-optimized parameters
+        const searchOptions: Parameters<typeof searchRecipes>[2] = {
+          fillIngredients: true,
+          addRecipeInformation: true,
+          addRecipeNutrition: true,
+        };
+        if (aiResponseData.diet) searchOptions.diet = aiResponseData.diet;
+        if (aiResponseData.cuisine)
+          searchOptions.cuisine = aiResponseData.cuisine;
+        if (aiResponseData.maxReadyTime)
+          searchOptions.maxReadyTime = aiResponseData.maxReadyTime;
+        if (aiResponseData.type) searchOptions.type = aiResponseData.type;
+        if (aiResponseData.excludeIngredients)
+          searchOptions.excludeIngredients = aiResponseData.excludeIngredients;
+        if (aiResponseData.includeIngredients)
+          searchOptions.includeIngredients = aiResponseData.includeIngredients;
+
+        const number = aiResponseData.number || 10;
+        const results = await searchRecipes(
+          aiResponseData.searchTerm ||
+            query.trim() ||
+            ingredients?.trim() ||
+            "recipes",
+          1,
+          Object.keys(searchOptions).length > 0 ? searchOptions : undefined
+        );
+
+        // Generate AI explanation for recommendations
+        const reason = query.trim()
+          ? `Recommended based on: "${query.trim()}"`
+          : ingredients?.trim()
+          ? `Recommended based on available ingredients: ${ingredients.trim()}`
+          : "Personalized recommendations for you";
+
+        const response = jsonResponse({
+          recipes: (results.results || []).slice(0, number),
+          reason: reason,
+          context: recommendationContext.trim(),
+        });
+        response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+        return response;
+      } catch (error) {
+        console.error("AI recommendations error:", error);
+        return jsonResponse(
+          {
+            error: "AI recommendations failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    }
+
+    // Route: /api/ai/analysis - AI-powered recipe analysis (nutrition, health, substitutions, allergens)
+    if (path[0] === "ai" && path[1] === "analysis") {
+      const recipeId = searchParams.get("recipeId");
+      if (!recipeId || isNaN(Number(recipeId))) {
+        return jsonResponse(
+          { error: "Valid recipeId parameter is required" },
+          400
+        );
+      }
+
+      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
+      const huggingFaceApiKey = process.env.HUGGING_FACE_INFERENCE_API_KEY;
+
+      if (!openRouterApiKey && !geminiApiKey && !huggingFaceApiKey) {
+        return jsonResponse(
+          {
+            error:
+              "No AI API keys configured (OpenRouter, Gemini, or Hugging Face required)",
+          },
+          500
+        );
+      }
+
+      try {
+        // Fetch recipe information for analysis context
+        const recipeInfo = await getRecipeInformation(recipeId, {
+          includeNutrition: true,
+        });
+
+        if (!recipeInfo) {
+          return jsonResponse({ error: "Recipe not found" }, 404);
+        }
+
+        // Build analysis context
+        const analysisContext = `Analyze this recipe:
+
+Title: ${recipeInfo.title || "Unknown"}
+Servings: ${recipeInfo.servings || "Unknown"}
+Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
+
+Ingredients:
+${
+  recipeInfo.extendedIngredients
+    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    .join("\n") || "Not available"
+}
+
+Nutrition (per serving):
+${
+  recipeInfo.nutrition
+    ? JSON.stringify(
+        recipeInfo.nutrition.nutrients?.slice(0, 10) || [],
+        null,
+        2
+      )
+    : "Not available"
+}
+
+Dietary Information:
+${recipeInfo.vegan ? "- Vegan" : ""}
+${recipeInfo.vegetarian ? "- Vegetarian" : ""}
+${recipeInfo.glutenFree ? "- Gluten-free" : ""}
+${recipeInfo.dairyFree ? "- Dairy-free" : ""}
+${recipeInfo.ketogenic ? "- Ketogenic" : ""}
+
+Provide a comprehensive analysis in JSON format with these fields:
+{
+  "healthScore": { "score": 0-100, "explanation": "string" },
+  "nutritionAnalysis": { "summary": "string", "strengths": ["string"], "concerns": ["string"] },
+  "ingredientSubstitutions": [{"original": "string", "substitute": "string", "reason": "string", "dietaryBenefit": "string"}],
+  "allergens": [{"allergen": "string", "severity": "low|medium|high", "sources": ["string"]}],
+  "cookingDifficulty": { "level": "beginner|intermediate|advanced", "explanation": "string", "tips": ["string"] },
+  "timeValidation": { "estimatedTime": number, "discrepancy": "string" }
+}
+
+Return ONLY valid JSON, no other text.`;
+
+        const systemPrompt =
+          "You are a nutrition and cooking expert. Analyze recipes and provide comprehensive insights. Return ONLY valid JSON, no other text.";
+
+        let analysisData: any = null;
+
+        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
+        // Try OpenRouter with Claude first
+        if (openRouterApiKey && !analysisData) {
+          try {
+            const openRouterResponse = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${openRouterApiKey}`,
+                  "HTTP-Referer":
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+                  "X-Title": "Recipe Smart App",
+                },
+                body: JSON.stringify({
+                  model: "anthropic/claude-3.5-sonnet",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: analysisContext },
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 1000,
+                }),
+              }
+            );
+
+            if (openRouterResponse.ok) {
+              const openRouterResult = await openRouterResponse.json();
+              const aiContent =
+                openRouterResult.choices?.[0]?.message?.content || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                analysisData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, try next provider
+              }
+            }
+          } catch (openRouterError) {
+            console.warn(
+              "OpenRouter Claude failed, trying GPT:",
+              openRouterError
+            );
+          }
+
+          // Try GPT-4o-mini on OpenRouter if Claude failed
+          if (!analysisData && openRouterApiKey) {
+            try {
+              const gptResponse = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openRouterApiKey}`,
+                    "HTTP-Referer":
+                      process.env.NEXT_PUBLIC_API_URL ||
+                      "http://localhost:3000",
+                    "X-Title": "Recipe Smart App",
+                  },
+                  body: JSON.stringify({
+                    model: "openai/gpt-4o-mini",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: analysisContext },
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 1000,
+                  }),
+                }
+              );
+
+              if (gptResponse.ok) {
+                const gptResult = await gptResponse.json();
+                const aiContent =
+                  gptResult.choices?.[0]?.message?.content || "{}";
+                try {
+                  const jsonMatch =
+                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                    aiContent.match(/{[\s\S]*}/);
+                  analysisData = JSON.parse(
+                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                  );
+                } catch {
+                  // Parse failed, try next provider
+                }
+              }
+            } catch (gptError) {
+              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
+            }
+          }
+        }
+
+        // Fallback to Gemini
+        if (!analysisData && geminiApiKey) {
+          try {
+            const geminiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        { text: `${systemPrompt}\n\n${analysisContext}` },
+                      ],
+                    },
+                  ],
+                  generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1000,
+                  },
+                }),
+              }
+            );
+
+            if (geminiResponse.ok) {
+              const geminiResult = await geminiResponse.json();
+              const aiContent =
+                geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                analysisData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, use fallback
+              }
+            }
+          } catch (geminiError) {
+            console.warn("Gemini failed, using simple fallback:", geminiError);
+          }
+        }
+
+        // If all AI providers failed, use simple fallback based on recipe data
+        if (!analysisData) {
+          analysisData = {
+            healthScore: {
+              score: recipeInfo.healthScore || 50,
+              explanation: "Health score based on recipe nutritional data",
+            },
+            nutritionAnalysis: {
+              summary: "Nutritional analysis based on available recipe data",
+              strengths: recipeInfo.veryHealthy
+                ? ["Recipe is marked as very healthy"]
+                : [],
+              concerns: [],
+            },
+            allergens: (() => {
+              const allergens: Array<{
+                allergen: string;
+                severity: "low" | "medium" | "high";
+                sources?: string[];
+              }> = [];
+              if (!recipeInfo.glutenFree)
+                allergens.push({ allergen: "gluten", severity: "medium" });
+              if (!recipeInfo.dairyFree)
+                allergens.push({ allergen: "dairy", severity: "medium" });
+              return allergens;
+            })(),
+            cookingDifficulty: {
+              level:
+                recipeInfo.readyInMinutes && recipeInfo.readyInMinutes > 60
+                  ? "advanced"
+                  : recipeInfo.readyInMinutes && recipeInfo.readyInMinutes > 30
+                  ? "intermediate"
+                  : "beginner",
+              explanation: "Difficulty estimated based on cooking time",
+              tips: [],
+            },
+          };
+        }
+
+        const response = jsonResponse(analysisData);
+        response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+        return response;
+      } catch (error) {
+        console.error("AI analysis error:", error);
+        return jsonResponse(
+          {
+            error: "AI analysis failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    }
+
+    // Route: /api/ai/modifications - AI-powered recipe modifications (dietary conversion, simplification)
+    if (path[0] === "ai" && path[1] === "modifications") {
+      const recipeId = searchParams.get("recipeId");
+      const modificationType = searchParams.get("type"); // "dietary" or "simplify"
+      const targetDiet = searchParams.get("diet"); // e.g., "vegan", "keto", "gluten-free"
+
+      if (!recipeId || isNaN(Number(recipeId))) {
+        return jsonResponse(
+          { error: "Valid recipeId parameter is required" },
+          400
+        );
+      }
+
+      if (
+        !modificationType ||
+        !["dietary", "simplify"].includes(modificationType)
+      ) {
+        return jsonResponse(
+          { error: "Valid type parameter required (dietary or simplify)" },
+          400
+        );
+      }
+
+      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
+      const huggingFaceApiKey = process.env.HUGGING_FACE_INFERENCE_API_KEY;
+
+      if (!openRouterApiKey && !geminiApiKey && !huggingFaceApiKey) {
+        return jsonResponse(
+          {
+            error:
+              "No AI API keys configured (OpenRouter, Gemini, or Hugging Face required)",
+          },
+          500
+        );
+      }
+
+      try {
+        // Fetch recipe information for modification context
+        const recipeInfo = await getRecipeInformation(recipeId, {
+          includeNutrition: true,
+        });
+
+        if (!recipeInfo) {
+          return jsonResponse({ error: "Recipe not found" }, 404);
+        }
+
+        // Build modification context
+        const modificationContext =
+          modificationType === "dietary"
+            ? `Convert this recipe to ${targetDiet || "vegan"} diet:
+
+Title: ${recipeInfo.title || "Unknown"}
+Servings: ${recipeInfo.servings || "Unknown"}
+Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
+
+Ingredients:
+${
+  recipeInfo.extendedIngredients
+    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    .join("\n") || "Not available"
+}
+
+Instructions:
+${
+  recipeInfo.instructions ||
+  recipeInfo.analyzedInstructions
+    ?.map((inst: any) => inst.steps.map((s: any) => s.step).join("\n"))
+    .join("\n\n") ||
+  "Not available"
+}
+
+Convert this recipe to ${
+                targetDiet || "vegan"
+              } while maintaining flavor and texture. Provide:
+1. Modified ingredients list with substitutions
+2. Updated instructions if needed
+3. Brief explanation of changes
+
+Return JSON format:
+{
+  "modifiedIngredients": [{"original": "string", "substitute": "string", "reason": "string"}],
+  "modifiedInstructions": "string",
+  "explanation": "string"
+}
+Return ONLY valid JSON, no other text.`
+            : `Simplify this recipe for beginners:
+
+Title: ${recipeInfo.title || "Unknown"}
+Servings: ${recipeInfo.servings || "Unknown"}
+Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
+
+Ingredients:
+${
+  recipeInfo.extendedIngredients
+    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    .join("\n") || "Not available"
+}
+
+Instructions:
+${
+  recipeInfo.instructions ||
+  recipeInfo.analyzedInstructions
+    ?.map((inst: any) => inst.steps.map((s: any) => s.step).join("\n"))
+    .join("\n\n") ||
+  "Not available"
+}
+
+Simplify this recipe for beginner cooks. Use simpler ingredients, clearer instructions, and fewer steps. Provide:
+1. Simplified ingredients list
+2. Step-by-step simplified instructions
+3. Tips for beginners
+
+Return JSON format:
+{
+  "simplifiedIngredients": [{"original": "string", "simplified": "string", "reason": "string"}],
+  "simplifiedInstructions": "string",
+  "tips": ["string"]
+}
+Return ONLY valid JSON, no other text.`;
+
+        const systemPrompt =
+          modificationType === "dietary"
+            ? "You are a culinary expert specializing in dietary recipe conversions. Convert recipes to specific dietary requirements while maintaining taste and nutrition. Return ONLY valid JSON, no other text."
+            : "You are a cooking instructor. Simplify complex recipes for beginner cooks with clear instructions and tips. Return ONLY valid JSON, no other text.";
+
+        let modificationData: any = null;
+
+        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
+        if (openRouterApiKey && !modificationData) {
+          try {
+            const openRouterResponse = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${openRouterApiKey}`,
+                  "HTTP-Referer":
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+                  "X-Title": "Recipe Smart App",
+                },
+                body: JSON.stringify({
+                  model: "anthropic/claude-3.5-sonnet",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: modificationContext },
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 1500,
+                }),
+              }
+            );
+
+            if (openRouterResponse.ok) {
+              const openRouterResult = await openRouterResponse.json();
+              const aiContent =
+                openRouterResult.choices?.[0]?.message?.content || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                modificationData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, try next provider
+              }
+            }
+          } catch (openRouterError) {
+            console.warn(
+              "OpenRouter Claude failed, trying GPT:",
+              openRouterError
+            );
+          }
+
+          // Try GPT-4o-mini on OpenRouter if Claude failed
+          if (!modificationData && openRouterApiKey) {
+            try {
+              const gptResponse = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openRouterApiKey}`,
+                    "HTTP-Referer":
+                      process.env.NEXT_PUBLIC_API_URL ||
+                      "http://localhost:3000",
+                    "X-Title": "Recipe Smart App",
+                  },
+                  body: JSON.stringify({
+                    model: "openai/gpt-4o-mini",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: modificationContext },
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 1500,
+                  }),
+                }
+              );
+
+              if (gptResponse.ok) {
+                const gptResult = await gptResponse.json();
+                const aiContent =
+                  gptResult.choices?.[0]?.message?.content || "{}";
+                try {
+                  const jsonMatch =
+                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                    aiContent.match(/{[\s\S]*}/);
+                  modificationData = JSON.parse(
+                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                  );
+                } catch {
+                  // Parse failed, try next provider
+                }
+              }
+            } catch (gptError) {
+              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
+            }
+          }
+        }
+
+        // Fallback to Gemini
+        if (!modificationData && geminiApiKey) {
+          try {
+            const geminiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        {
+                          text: `${systemPrompt}\n\n${modificationContext}`,
+                        },
+                      ],
+                    },
+                  ],
+                  generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1500,
+                  },
+                }),
+              }
+            );
+
+            if (geminiResponse.ok) {
+              const geminiResult = await geminiResponse.json();
+              const aiContent =
+                geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+              try {
+                const jsonMatch =
+                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
+                  aiContent.match(/{[\s\S]*}/);
+                modificationData = JSON.parse(
+                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
+                );
+              } catch {
+                // Parse failed, use fallback
+              }
+            }
+          } catch (geminiError) {
+            console.warn("Gemini failed, using simple fallback:", geminiError);
+          }
+        }
+
+        // Simple fallback if all AI providers failed
+        if (!modificationData) {
+          modificationData =
+            modificationType === "dietary"
+              ? {
+                  modifiedIngredients: [],
+                  modifiedInstructions: recipeInfo.instructions || "",
+                  explanation:
+                    "Dietary conversion not available. Please check recipe ingredients manually.",
+                }
+              : {
+                  simplifiedIngredients: [],
+                  simplifiedInstructions: recipeInfo.instructions || "",
+                  tips: ["Follow the original recipe instructions carefully."],
+                };
+        }
+
+        const response = jsonResponse(modificationData);
+        response.headers.set("X-Response-Time", `${Date.now() - startTime}ms`);
+        return response;
+      } catch (error) {
+        console.error("AI modification error:", error);
+        return jsonResponse(
+          {
+            error: "AI modification failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    }
+
     // Route: /api/recipes/favourite (GET)
     if (path[0] === "recipes" && path[1] === "favourite") {
       const auth = await requireAuth(request);
@@ -468,7 +1623,8 @@ export async function GET(
       });
 
       if (!note) {
-        return jsonResponse({ error: "Note not found" }, 404);
+        // Return 200 with null instead of 404 when note doesn't exist
+        return jsonResponse(null);
       }
 
       return jsonResponse({
@@ -840,7 +1996,62 @@ export async function POST(
         return jsonResponse({ error: "Recipe is already in favorites" }, 409);
       }
 
+      // Ensure User exists in database before creating FavouriteRecipes
+      // This handles the case where a user authenticates but hasn't been created in our DB yet
       try {
+        const authHeader = request.headers.get("authorization");
+        let userEmail = `user-${auth.userId}@temp.local`; // Temporary email fallback
+        let userName: string | undefined;
+        let userPicture: string | undefined;
+
+        // Try to extract user info from JWT token if available
+        if (authHeader) {
+          try {
+            const cleanToken = authHeader.replace(/^Bearer\s+/i, "");
+            const parts = cleanToken.split(".");
+            if (parts.length === 3) {
+              const payload = JSON.parse(
+                Buffer.from(parts[1], "base64url").toString("utf-8")
+              ) as {
+                sub?: string;
+                email?: string;
+                name?: string;
+                picture?: string;
+                aud?: string | string[];
+                iss?: string;
+                exp?: number;
+              };
+              if (payload.email) userEmail = payload.email;
+              if (payload.name) userName = payload.name;
+              if (payload.picture) userPicture = payload.picture;
+            }
+          } catch (e) {
+            // If we can't decode token, use fallback
+            console.warn(
+              "Could not extract user info from token, using fallback"
+            );
+          }
+        }
+
+        // Upsert User to ensure it exists
+        await prisma.user.upsert({
+          where: { id: auth.userId! },
+          update: {
+            // Update email, name, picture if we have them and they're different
+            ...(userEmail !== `user-${auth.userId}@temp.local` && {
+              email: userEmail,
+            }),
+            ...(userName && { name: userName }),
+            ...(userPicture && { picture: userPicture }),
+          },
+          create: {
+            id: auth.userId!,
+            email: userEmail,
+            name: userName,
+            picture: userPicture,
+          },
+        });
+
         const favouriteRecipe = await prisma.favouriteRecipes.create({
           data: { recipeId: recipeIdNum, userId: auth.userId! },
           select: { id: true, recipeId: true, userId: true },

@@ -20,6 +20,8 @@ import { SearchRecipesResponse } from "../types";
 const CACHE_PREFIX = "recipe_app_";
 const SEARCH_CACHE_KEY = `${CACHE_PREFIX}search_`;
 const CACHE_EXPIRY_DAYS = 7;
+const MAX_CACHE_SIZE_MB = 2; // Max 2MB for search cache
+const MAX_CACHE_SIZE_BYTES = MAX_CACHE_SIZE_MB * 1024 * 1024;
 
 /**
  * Cache entry interface
@@ -45,6 +47,108 @@ function isExpired<T>(entry: CacheEntry<T>): boolean {
 }
 
 /**
+ * Estimate the size of a cache entry in bytes
+ */
+function estimateSize(entry: CacheEntry<SearchRecipesResponse>): number {
+  return new TextEncoder().encode(JSON.stringify(entry)).length;
+}
+
+/**
+ * Get total size of all search cache entries in localStorage
+ */
+function getTotalCacheSize(): number {
+  if (typeof window === "undefined") return 0;
+  
+  let totalSize = 0;
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith(SEARCH_CACHE_KEY)) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += new TextEncoder().encode(value).length;
+        }
+      }
+    });
+  } catch (error) {
+    console.warn("Failed to calculate cache size:", error);
+  }
+  return totalSize;
+}
+
+/**
+ * Clean up expired entries from localStorage
+ */
+function cleanupExpiredEntries(): void {
+  if (typeof window === "undefined") return;
+  
+  try {
+    const keysToRemove: string[] = [];
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith(SEARCH_CACHE_KEY)) {
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const entry: CacheEntry<SearchRecipesResponse> = JSON.parse(cached);
+            if (isExpired(entry)) {
+              keysToRemove.push(key);
+            }
+          }
+        } catch (error) {
+          // Invalid entry, remove it
+          keysToRemove.push(key);
+        }
+      }
+    });
+    
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  } catch (error) {
+    console.warn("Failed to cleanup expired entries:", error);
+  }
+}
+
+/**
+ * Clean up least recently used entries to make space
+ */
+function cleanupLRUEntries(targetSize: number): void {
+  if (typeof window === "undefined") return;
+  
+  try {
+    const entries: Array<{ key: string; entry: CacheEntry<SearchRecipesResponse>; size: number }> = [];
+    
+    // Collect all valid entries with their sizes
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith(SEARCH_CACHE_KEY)) {
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const entry: CacheEntry<SearchRecipesResponse> = JSON.parse(cached);
+            if (!isExpired(entry)) {
+              const size = new TextEncoder().encode(cached).length;
+              entries.push({ key, entry, size });
+            }
+          }
+        } catch (error) {
+          // Invalid entry, skip it
+        }
+      }
+    });
+    
+    // Sort by timestamp (oldest first)
+    entries.sort((a, b) => a.entry.timestamp - b.entry.timestamp);
+    
+    // Remove oldest entries until we're under the target size
+    let currentSize = entries.reduce((sum, e) => sum + e.size, 0);
+    for (const { key, size } of entries) {
+      if (currentSize <= targetSize) break;
+      localStorage.removeItem(key);
+      currentSize -= size;
+    }
+  } catch (error) {
+    console.warn("Failed to cleanup LRU entries:", error);
+  }
+}
+
+/**
  * Save search results to localStorage
  *
  * @param searchTerm - Search query string
@@ -60,16 +164,49 @@ export function saveSearchToLocalStorage(
   if (typeof window === "undefined") return;
   
   try {
+    // Clean up expired entries first
+    cleanupExpiredEntries();
+    
     const cacheKey = getSearchCacheKey(searchTerm, page);
     const entry: CacheEntry<SearchRecipesResponse> = {
       data,
       timestamp: Date.now(),
       expiry: Date.now() + CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
     };
+    
+    const entrySize = estimateSize(entry);
+    const currentSize = getTotalCacheSize();
+    
+    // If adding this entry would exceed the limit, clean up space
+    if (currentSize + entrySize > MAX_CACHE_SIZE_BYTES) {
+      const targetSize = MAX_CACHE_SIZE_BYTES - entrySize - (100 * 1024); // Leave 100KB buffer
+      cleanupLRUEntries(Math.max(0, targetSize));
+    }
+    
     localStorage.setItem(cacheKey, JSON.stringify(entry));
   } catch (error) {
     // localStorage might be full or disabled
-    console.warn("Failed to save to localStorage:", error);
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      // Try to free up space and retry once
+      try {
+        cleanupExpiredEntries();
+        const targetSize = MAX_CACHE_SIZE_BYTES * 0.5; // Free up to 50% of max size
+        cleanupLRUEntries(targetSize);
+        
+        // Retry saving
+        const cacheKey = getSearchCacheKey(searchTerm, page);
+        const entry: CacheEntry<SearchRecipesResponse> = {
+          data,
+          timestamp: Date.now(),
+          expiry: Date.now() + CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(entry));
+      } catch (retryError) {
+        console.warn("Failed to save to localStorage after cleanup:", retryError);
+      }
+    } else {
+      console.warn("Failed to save to localStorage:", error);
+    }
   }
 }
 

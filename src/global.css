@@ -41,20 +41,20 @@
 @layer components {
   /* Gradient Glow Effects */
   .glow-card {
-    @apply relative bg-gradient-to-br from-slate-800/90 to-purple-900/90 backdrop-blur-sm;
-    @apply border border-purple-500/30 rounded-xl;
-    @apply shadow-glow transition-all duration-300;
+    @apply relative bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-sm;
+    @apply border border-green-500/20 rounded-xl;
+    @apply shadow-lg shadow-green-500/10 transition-all duration-300;
   }
-  
+
   .glow-card:hover {
-    @apply shadow-glow-lg border-purple-400/50 scale-[1.02];
+    @apply shadow-xl shadow-green-500/20 border-green-500/40 scale-[1.02];
   }
 
   .glow-button {
-    @apply relative bg-gradient-to-r from-purple-600 to-pink-600;
+    @apply relative bg-gradient-to-r from-green-600 to-emerald-600;
     @apply text-white font-semibold rounded-lg px-6 py-3;
-    @apply shadow-glow-purple transition-all duration-300;
-    @apply hover:shadow-glow-lg hover:scale-105 active:scale-95;
+    @apply shadow-lg shadow-green-500/50 transition-all duration-300;
+    @apply hover:shadow-xl hover:shadow-green-500/70 hover:scale-105 active:scale-95;
   }
 
   .glow-badge {
@@ -72,8 +72,9 @@
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400;
+    @apply bg-gradient-to-r from-green-800 via-emerald-500 to-green-800;
     @apply bg-clip-text text-transparent;
+    @apply drop-shadow-[0_0_15px_rgba(34,197,94,0.5)];
     @apply animate-pulse;
   }
 
@@ -110,42 +111,44 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
-  
+
   .prose a {
     @apply text-purple-400 hover:text-purple-300 underline transition-colors;
     word-break: break-word;
   }
-  
+
   .prose strong {
     @apply text-white font-semibold;
   }
-  
+
   .prose em {
     @apply text-purple-300;
   }
-  
-  .prose ul, .prose ol {
+
+  .prose ul,
+  .prose ol {
     @apply text-gray-300;
   }
-  
+
   .prose li {
     @apply my-2;
   }
-  
+
   .prose p {
     @apply mb-4;
     word-break: break-word;
     overflow-wrap: break-word;
   }
-  
-  .prose h1, .prose h2, .prose h3 {
+
+  .prose h1,
+  .prose h2,
+  .prose h3 {
     @apply text-white font-bold mt-6 mb-4;
     word-break: break-word;
   }
-  
+
   .prose * {
     max-width: 100%;
     overflow-x: hidden;
   }
 }
-

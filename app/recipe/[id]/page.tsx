@@ -76,18 +76,24 @@ import {
   useAddFavouriteRecipe,
   useRemoveFavouriteRecipe,
 } from "@/hooks/useRecipes";
-import SkeletonRecipeDetail from "@/components/SkeletonRecipeDetail";
-import SimilarRecipesList from "@/components/SimilarRecipesList";
+import SkeletonRecipeDetail from "@/components/skeletons/SkeletonRecipeDetail";
+import SimilarRecipesList from "@/components/recipes/SimilarRecipesList";
 import { AuthProvider } from "@/context/AuthContext";
 import { RecipeProvider } from "@/context/RecipeContext";
 
 // Code splitting: Lazy load sub-components that are conditionally rendered
-const RecipeNotes = lazy(() => import("@/components/RecipeNotes"));
+const RecipeNotes = lazy(() => import("@/components/recipes/RecipeNotes"));
 const RecipeImageGallery = lazy(
-  () => import("@/components/RecipeImageGallery")
+  () => import("@/components/recipes/RecipeImageGallery")
 );
 const AddToCollectionDialog = lazy(
-  () => import("@/components/AddToCollectionDialog")
+  () => import("@/components/collections/AddToCollectionDialog")
+);
+const RecipeAnalysis = lazy(
+  () => import("@/components/analysis/RecipeAnalysis")
+);
+const RecipeModifications = lazy(
+  () => import("@/components/recipes/RecipeModifications")
 );
 
 /**
@@ -276,7 +282,16 @@ const RecipePageContent = memo(() => {
 
   if (!recipe && !isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          backgroundImage: "url(/recipe-bg-5.avif)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
             <p className="text-gray-400 mb-4">Recipe not found.</p>
@@ -291,7 +306,16 @@ const RecipePageContent = memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundImage: "url(/recipe-bg-5.avif)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
       {/* Header with Back Button */}
       <div className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-sm border-b border-purple-500/30">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
@@ -411,8 +435,8 @@ const RecipePageContent = memo(() => {
             </Card>
 
             {/* Tabs Section */}
-            <Card className="glow-card border-purple-500/30">
-              <CardContent className="p-4 sm:p-6">
+            <Card className="border-purple-500/30 bg-slate-900/30 backdrop-blur-sm rounded-xl shadow-lg">
+              <CardContent className="p-4 sm:p-6 bg-transparent">
                 <Tabs
                   value={activeTab}
                   onValueChange={handleTabChange}
@@ -455,6 +479,20 @@ const RecipePageContent = memo(() => {
                       <Info className="h-3 w-3 sm:h-4 sm:w-4" />
                       <span className="hidden sm:inline">Details</span>
                     </TabsTrigger>
+                  <TabsTrigger
+                    value="analysis"
+                    className="flex items-center gap-2 text-xs sm:text-sm"
+                  >
+                    <FlaskConical className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Analysis</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="modifications"
+                    className="flex items-center gap-2 text-xs sm:text-sm"
+                  >
+                    <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Modify</span>
+                  </TabsTrigger>
                     {recipeInfo?.nutrition && (
                       <TabsTrigger
                         value="nutrition"
@@ -1566,6 +1604,40 @@ const RecipePageContent = memo(() => {
                       </Card>
                     )}
                   </TabsContent>
+
+                  {/* Analysis Tab */}
+                  <TabsContent
+                    value="analysis"
+                    className="space-y-6 mt-0 transition-opacity duration-300"
+                  >
+                    <Suspense
+                      fallback={
+                        <div className="text-gray-400 p-6">
+                          Loading analysis...
+                        </div>
+                      }
+                    >
+                      <RecipeAnalysis recipeId={id} />
+                    </Suspense>
+                  </TabsContent>
+
+                  {/* Modifications Tab */}
+                  {recipeInfo && (
+                    <TabsContent
+                      value="modifications"
+                      className="space-y-6 mt-0 transition-opacity duration-300"
+                    >
+                      <Suspense
+                        fallback={
+                          <div className="text-gray-400 p-6">
+                            Loading modifications...
+                          </div>
+                        }
+                      >
+                        <RecipeModifications recipeInfo={recipeInfo} />
+                      </Suspense>
+                    </TabsContent>
+                  )}
 
                   {/* Nutrition Tab - Display full nutrition data */}
                   {recipeInfo?.nutrition && (

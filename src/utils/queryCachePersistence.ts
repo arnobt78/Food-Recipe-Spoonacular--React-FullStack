@@ -5,7 +5,7 @@
  * Restores cache on app initialization for instant data availability
  *
  * Following REACT_QUERY_SETUP_GUIDE.md: localStorage persistence for better caching
- * 
+ *
  * Implements cache size limits and selective persistence to avoid QuotaExceededError
  */
 
@@ -55,7 +55,7 @@ function estimateSize(obj: unknown): number {
 /**
  * Check if a query key matches any priority prefix
  */
-function isPriorityQuery(queryKey: unknown[]): boolean {
+function isPriorityQuery(queryKey: readonly unknown[]): boolean {
   return PRIORITY_QUERY_PREFIXES.some((prefix) => {
     if (queryKey.length < prefix.length) return false;
     return prefix.every((part, index) => queryKey[index] === part);
@@ -70,21 +70,21 @@ function isPriorityQuery(queryKey: unknown[]): boolean {
 export function persistQueryCache(queryClient: QueryClient): void {
   // Only access localStorage in browser environment (not during SSR)
   if (typeof window === "undefined") return;
-  
+
   try {
     const cache = queryClient.getQueryCache().getAll();
-    
+
     // Separate priority and regular queries
     const priorityQueries: Array<{
-      queryKey: unknown[];
+      queryKey: readonly unknown[];
       data: unknown;
       dataUpdatedAt: number;
       status: string;
       size: number;
     }> = [];
-    
+
     const regularQueries: Array<{
-      queryKey: unknown[];
+      queryKey: readonly unknown[];
       data: unknown;
       dataUpdatedAt: number;
       status: string;
@@ -99,7 +99,7 @@ export function persistQueryCache(queryClient: QueryClient): void {
         dataUpdatedAt: query.state.dataUpdatedAt,
         status: query.state.status,
       };
-      
+
       const size = estimateSize(queryData);
       const queryEntry = { ...queryData, size };
 
@@ -143,10 +143,14 @@ export function persistQueryCache(queryClient: QueryClient): void {
     // Double-check size before storing
     if (finalSize > MAX_CACHE_SIZE) {
       console.warn(
-        `Cache size (${Math.round(finalSize / 1024)}KB) exceeds limit, truncating...`
+        `Cache size (${Math.round(
+          finalSize / 1024
+        )}KB) exceeds limit, truncating...`
       );
       // Keep only priority queries if still too large
-      const priorityOnly = priorityQueries.map(({ size: _, ...query }) => query);
+      const priorityOnly = priorityQueries.map(
+        ({ size: _, ...query }) => query
+      );
       const minimalCache: PersistedCache = {
         version: CACHE_VERSION,
         timestamp: Date.now(),
@@ -156,7 +160,7 @@ export function persistQueryCache(queryClient: QueryClient): void {
     } else {
       localStorage.setItem(CACHE_STORAGE_KEY, serialized);
     }
-    
+
     localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
   } catch (error) {
     // Handle QuotaExceededError specifically
@@ -169,8 +173,9 @@ export function persistQueryCache(queryClient: QueryClient): void {
         localStorage.removeItem(CACHE_STORAGE_KEY);
         const cache = queryClient.getQueryCache().getAll();
         const priorityCache = cache
-          .filter((query) =>
-            Array.isArray(query.queryKey) && isPriorityQuery(query.queryKey)
+          .filter(
+            (query) =>
+              Array.isArray(query.queryKey) && isPriorityQuery(query.queryKey)
           )
           .map((query) => ({
             queryKey: query.queryKey,
@@ -188,7 +193,10 @@ export function persistQueryCache(queryClient: QueryClient): void {
         localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(minimalCache));
         localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
       } catch (retryError) {
-        console.warn("Failed to persist query cache even with minimal data:", retryError);
+        console.warn(
+          "Failed to persist query cache even with minimal data:",
+          retryError
+        );
         // Clear cache to prevent repeated errors
         localStorage.removeItem(CACHE_STORAGE_KEY);
       }
@@ -206,7 +214,7 @@ export function persistQueryCache(queryClient: QueryClient): void {
 export function restoreQueryCache(queryClient: QueryClient): void {
   // Only access localStorage in browser environment (not during SSR)
   if (typeof window === "undefined") return;
-  
+
   try {
     const stored = localStorage.getItem(CACHE_STORAGE_KEY);
     const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
@@ -223,13 +231,19 @@ export function restoreQueryCache(queryClient: QueryClient): void {
 
     // Restore each query to cache
     if (Array.isArray(persisted.cache)) {
-      persisted.cache.forEach((item: { queryKey: unknown[]; data: unknown; dataUpdatedAt: number }) => {
-        if (item.queryKey && item.data !== undefined) {
-          queryClient.setQueryData(item.queryKey, item.data, {
-            updatedAt: item.dataUpdatedAt || Date.now(),
-          });
+      persisted.cache.forEach(
+        (item: {
+          queryKey: unknown[];
+          data: unknown;
+          dataUpdatedAt: number;
+        }) => {
+          if (item.queryKey && item.data !== undefined) {
+            queryClient.setQueryData(item.queryKey, item.data, {
+              updatedAt: item.dataUpdatedAt || Date.now(),
+            });
+          }
         }
-      });
+      );
     }
   } catch (error) {
     console.warn("Failed to restore query cache:", error);
@@ -244,7 +258,7 @@ export function restoreQueryCache(queryClient: QueryClient): void {
 export function clearPersistedCache(): void {
   // Only access localStorage in browser environment (not during SSR)
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.removeItem(CACHE_STORAGE_KEY);
     localStorage.removeItem(CACHE_VERSION_KEY);
@@ -264,7 +278,7 @@ export function setupCachePersistence(queryClient: QueryClient): () => void {
   if (typeof window === "undefined") {
     return () => {}; // Return no-op cleanup function
   }
-  
+
   // Restore cache on initialization
   restoreQueryCache(queryClient);
 
@@ -293,4 +307,3 @@ export function setupCachePersistence(queryClient: QueryClient): () => void {
     document.removeEventListener("visibilitychange", handleVisibilityChange);
   };
 }
-
