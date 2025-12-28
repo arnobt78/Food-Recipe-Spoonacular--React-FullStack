@@ -12,18 +12,25 @@
  * Following DEVELOPMENT_RULES.md: Reusable component, centralized hooks
  */
 
-import { memo, useState, useCallback, useRef } from "react";
+import { memo, useState, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useUploadImage } from "../../hooks/useRecipeImages";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Upload, X } from "lucide-react";
+import {
+  getPresetById,
+  validateFileAgainstPreset,
+} from "../../config/upload-presets";
+import { toast } from "sonner";
 
 interface ImageUploaderProps {
   onUploadComplete?: (imageUrl: string) => void;
   folder?: string;
   maxSize?: number; // in MB
   acceptedTypes?: string[];
+  presetId?: string; // Upload preset ID
+  recipeId?: number; // Optional recipe ID for folder structure
 }
 
 /**
@@ -37,6 +44,8 @@ const ImageUploader = memo(
     folder,
     maxSize = 5,
     acceptedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"],
+    presetId,
+    recipeId,
   }: ImageUploaderProps) => {
     const [preview, setPreview] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
@@ -45,16 +54,53 @@ const ImageUploader = memo(
 
     const uploadImage = useUploadImage();
 
+    // Get preset configuration if presetId is provided
+    const preset = useMemo(() => {
+      if (presetId) {
+        return getPresetById(presetId);
+      }
+      return null;
+    }, [presetId]);
+
+    // Determine effective maxSize and acceptedTypes from preset or props
+    const effectiveMaxSize = useMemo(() => {
+      return preset ? preset.maxFileSize : maxSize;
+    }, [preset, maxSize]);
+
+    const effectiveAcceptedTypes = useMemo(() => {
+      return preset ? preset.allowedFormats : acceptedTypes;
+    }, [preset, acceptedTypes]);
+
     const handleFileSelect = useCallback(
       (selectedFile: File) => {
-        // Validate file type
-        if (!acceptedTypes.includes(selectedFile.type)) {
-          return;
-        }
+        // If preset is provided, validate against preset
+        if (preset) {
+          const validation = validateFileAgainstPreset(selectedFile, preset);
+          if (!validation.valid) {
+            toast.error(validation.error || "File validation failed");
+            return;
+          }
+        } else {
+          // Fallback to original validation
+          // Validate file type
+          if (!acceptedTypes.includes(selectedFile.type)) {
+            toast.error(
+              `File type not allowed. Accepted types: ${acceptedTypes.join(", ")}`
+            );
+            return;
+          }
 
-        // Validate file size
-        if (selectedFile.size > maxSize * 1024 * 1024) {
-          return;
+          // Validate file size
+          if (selectedFile.size > maxSize * 1024 * 1024) {
+            toast.error(
+              `File size exceeds maximum of ${maxSize}MB. Current size: ${(
+                selectedFile.size /
+                1024 /
+                1024
+              ).toFixed(2)}MB`
+            );
+            return;
+          }
         }
 
         setFile(selectedFile);
@@ -66,7 +112,7 @@ const ImageUploader = memo(
         };
         reader.readAsDataURL(selectedFile);
       },
-      [acceptedTypes, maxSize]
+      [preset, acceptedTypes, maxSize]
     );
 
     const handleFileInputChange = useCallback(
@@ -106,7 +152,12 @@ const ImageUploader = memo(
       if (!file) return;
 
       uploadImage.mutate(
-        { imageFile: file, folder },
+        {
+          imageFile: file,
+          folder: preset ? undefined : folder, // Only use folder if no preset
+          presetId: presetId,
+          recipeId: recipeId,
+        },
         {
           onSuccess: (data) => {
             if (onUploadComplete) {
@@ -120,7 +171,7 @@ const ImageUploader = memo(
           },
         }
       );
-    }, [file, folder, uploadImage, onUploadComplete]);
+    }, [file, folder, presetId, recipeId, uploadImage, onUploadComplete, preset]);
 
     const handleRemove = useCallback(() => {
       setFile(null);
@@ -162,12 +213,12 @@ const ImageUploader = memo(
                   </Button>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Max size: {maxSize}MB • Accepted: JPEG, PNG, WebP, GIF
+                  Max size: {effectiveMaxSize}MB • Accepted: {effectiveAcceptedTypes.map((type) => type.split("/")[1].toUpperCase()).join(", ")}
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept={acceptedTypes.join(",")}
+                  accept={effectiveAcceptedTypes.join(",")}
                   onChange={handleFileInputChange}
                   className="hidden"
                 />

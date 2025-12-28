@@ -93,7 +93,7 @@ function cleanupExpiredEntries(): void {
               keysToRemove.push(key);
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Invalid entry, remove it
           keysToRemove.push(key);
         }
@@ -127,7 +127,7 @@ function cleanupLRUEntries(targetSize: number): void {
               entries.push({ key, entry, size });
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Invalid entry, skip it
         }
       }

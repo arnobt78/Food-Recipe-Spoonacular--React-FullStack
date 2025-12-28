@@ -81,7 +81,10 @@ const MealPlanner = memo((_props: MealPlannerProps) => {
   } = useMealPlan(weekStartISO, true);
 
   // Use empty meal plan structure as fallback for rendering
-  const displayMealPlan = mealPlan || { id: null, meals: [] };
+  const displayMealPlan = useMemo(
+    () => mealPlan || { id: null, meals: [] },
+    [mealPlan]
+  );
   const { data: favouriteRecipes = [], error: favouritesError } =
     useFavouriteRecipes();
   const addMealPlanItem = useAddMealPlanItem();

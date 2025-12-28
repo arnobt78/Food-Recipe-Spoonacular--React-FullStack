@@ -20,7 +20,7 @@ import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
-import { Scale, Leaf, Sparkles, ChefHat } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import EmptyState from "../common/EmptyState";
 import { Skeleton } from "../ui/skeleton";

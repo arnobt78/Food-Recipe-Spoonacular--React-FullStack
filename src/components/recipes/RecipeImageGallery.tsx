@@ -108,11 +108,12 @@ const RecipeImageGallery = memo(({ recipe }: RecipeImageGalleryProps) => {
   }, [imageToDelete, removeRecipeImage]);
 
   // Group images by type
+  // Map database types (main, other) to UI types (final, custom) for display
   const imagesByType = {
-    final: images.filter((img) => img.imageType === "final"),
+    final: images.filter((img) => img.imageType === "final" || img.imageType === "main"),
     step: images.filter((img) => img.imageType === "step"),
     ingredient: images.filter((img) => img.imageType === "ingredient"),
-    custom: images.filter((img) => img.imageType === "custom"),
+    custom: images.filter((img) => img.imageType === "custom" || img.imageType === "other"),
   };
 
   const imageTypeLabels: Record<string, string> = {
@@ -167,26 +168,32 @@ const RecipeImageGallery = memo(({ recipe }: RecipeImageGalleryProps) => {
                 <label className="text-sm font-medium">Image Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["final", "step", "ingredient", "custom"] as const).map(
-                    (type) => (
-                      <Button
-                        key={type}
-                        variant={
-                          selectedImageType === type ? "default" : "outline"
-                        }
-                        onClick={() => setSelectedImageType(type)}
-                        className="glow-button"
-                        aria-label={`Select ${imageTypeLabels[type]} image type`}
-                        aria-pressed={selectedImageType === type}
-                      >
-                        {imageTypeLabels[type]}
-                      </Button>
-                    )
+                    (type) => {
+                      const isSelected = selectedImageType === type;
+                      return (
+                        <Button
+                          key={type}
+                          type="button"
+                          onClick={() => setSelectedImageType(type)}
+                          className={`inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition duration-200 backdrop-blur-sm ${
+                            isSelected
+                              ? "border-emerald-400/50 bg-gradient-to-r from-emerald-500/70 via-emerald-500/50 to-emerald-500/30 text-white shadow-[0_15px_35px_rgba(16,185,129,0.45)] hover:border-emerald-300/60 hover:from-emerald-500/80 hover:via-emerald-500/60 hover:to-emerald-500/40"
+                              : "border-slate-400/30 bg-gradient-to-r from-slate-500/30 via-slate-500/20 to-slate-500/10 text-white/70 shadow-[0_15px_35px_rgba(71,85,105,0.25)] hover:border-slate-300/50 hover:from-slate-500/50 hover:via-slate-500/30 hover:to-slate-500/20 hover:text-white"
+                          }`}
+                          aria-label={`Select ${imageTypeLabels[type]} image type`}
+                          aria-pressed={isSelected}
+                        >
+                          {imageTypeLabels[type]}
+                        </Button>
+                      );
+                    }
                   )}
                 </div>
               </div>
               <ImageUploader
                 onUploadComplete={handleUploadComplete}
-                folder={`recipes/${recipe.id}`}
+                presetId="recipe_gallery"
+                recipeId={recipe.id}
               />
             </div>
           </DialogContent>

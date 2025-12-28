@@ -492,3 +492,41 @@ export interface RecipeImage {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Email sharing request interface
+ */
+export interface ShareRecipeEmailRequest {
+  recipeId: number;
+  recipeTitle: string;
+  recipeImage?: string;
+  recipientEmail: string;
+  senderName?: string;
+  message?: string;
+}
+
+/**
+ * Email sharing response interface
+ */
+export interface ShareRecipeEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Email meal plan request interface
+ */
+export interface EmailMealPlanRequest {
+  mealPlanId: string;
+  recipientEmail: string;
+  senderName?: string;
+  message?: string;
+}
+
+/**
+ * Newsletter subscription request interface
+ */
+export interface NewsletterSubscriptionRequest {
+  email: string;
+  name?: string;
+}

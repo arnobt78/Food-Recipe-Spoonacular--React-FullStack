@@ -19,6 +19,8 @@ import {
   RecipeRecommendationResponse,
   RecipeAnalysisResponse,
   RecipeModificationResponse,
+  ShareRecipeEmailRequest,
+  ShareRecipeEmailResponse,
 } from "./types";
 
 // Use relative paths for API calls - works with Next.js API routes
@@ -1487,10 +1489,13 @@ export const deleteShoppingList = async (id: string): Promise<void> => {
 
 /**
  * Upload image to Cloudinary
+ * 
+ * @param imageFile - File or Blob to upload
+ * @param options - Upload options (folder or presetId)
  */
 export const uploadImage = async (
   imageFile: File | Blob,
-  folder?: string
+  options?: { folder?: string; presetId?: string; recipeId?: number }
 ): Promise<{ imageUrl: string; publicId: string; width: number; height: number }> => {
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1508,7 +1513,9 @@ export const uploadImage = async (
     headers: await getAuthHeaders(),
     body: JSON.stringify({
       imageData: base64,
-      folder,
+      folder: options?.folder,
+      presetId: options?.presetId,
+      recipeId: options?.recipeId,
     }),
   });
 
@@ -1605,4 +1612,31 @@ export const removeRecipeImage = async (id: string): Promise<void> => {
     );
     throw new Error(errorMessage);
   }
+};
+
+/**
+ * Share recipe via email
+ */
+export const shareRecipeEmail = async (
+  data: ShareRecipeEmailRequest
+): Promise<ShareRecipeEmailResponse> => {
+  const apiPath = getApiUrl("/api/email/share");
+  const response = await fetch(apiPath, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("User not authenticated");
+    }
+    const errorMessage = await extractErrorMessage(
+      response,
+      `Request failed. Status: ${response.status}`
+    );
+    throw new Error(errorMessage);
+  }
+
+  return response.json() as Promise<ShareRecipeEmailResponse>;
 };

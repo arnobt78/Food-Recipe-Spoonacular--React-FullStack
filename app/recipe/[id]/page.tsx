@@ -56,6 +56,7 @@ import {
   Scale,
   FlaskConical,
   Flower2,
+  Share2,
 } from "lucide-react";
 import { Recipe } from "@/types";
 import {
@@ -63,6 +64,10 @@ import {
   addTargetBlankToLinks,
   removeSimilarRecipesFromSummary,
 } from "@/utils/stringUtils";
+import {
+  getIngredientImageUrl,
+  getEquipmentImageUrl,
+} from "@/utils/imageUtils";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useIsFavourite } from "@/hooks/useIsFavourite";
@@ -84,6 +89,9 @@ const RecipeImageGallery = lazy(
 );
 const AddToCollectionDialog = lazy(
   () => import("@/components/collections/AddToCollectionDialog")
+);
+const ShareRecipeDialog = lazy(
+  () => import("@/components/recipes/ShareRecipeDialog")
 );
 const RecipeAnalysis = lazy(
   () => import("@/components/analysis/RecipeAnalysis")
@@ -409,6 +417,24 @@ const RecipePageContent = memo(() => {
                   >
                     <FolderPlus className="h-5 w-5" />
                   </Button>
+                )}
+                {recipe && (
+                  <Suspense fallback={null}>
+                    <ShareRecipeDialog
+                      recipe={recipe}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-xl border border-white/10 bg-gradient-to-r from-blue-500/70 via-blue-500/50 to-blue-500/30 backdrop-blur-sm shadow-[0_15px_35px_rgba(59,130,246,0.45)] transition duration-200 hover:border-blue-300/40 hover:from-blue-500/80 hover:via-blue-500/60 hover:to-blue-500/40 text-white"
+                          aria-label="Share recipe"
+                          title="Share recipe"
+                        >
+                          <Share2 className="h-5 w-5" />
+                        </Button>
+                      }
+                    />
+                  </Suspense>
                 )}
               </div>
             </div>
@@ -1074,11 +1100,19 @@ const RecipePageContent = memo(() => {
                                           {ingredient.image && (
                                             <div className="relative flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-orange-500/20">
                                               <Image
-                                                src={`https://img.spoonacular.com/ingredients_100x100/${ingredient.image}`}
+                                                src={getIngredientImageUrl(
+                                                  ingredient.image
+                                                )}
                                                 alt={ingredient.name}
                                                 fill
                                                 sizes="(max-width: 640px) 48px, 64px"
                                                 className="object-cover"
+                                                unoptimized={true}
+                                                onError={(e) => {
+                                                  // Hide image on error (404 from Spoonacular)
+                                                  e.currentTarget.style.display =
+                                                    "none";
+                                                }}
                                               />
                                             </div>
                                           )}
@@ -1293,13 +1327,25 @@ const RecipePageContent = memo(() => {
                                                                 {ing.image && (
                                                                   <div className="relative w-6 h-6 rounded overflow-hidden">
                                                                     <Image
-                                                                      src={`https://img.spoonacular.com/ingredients_100x100/${ing.image}`}
+                                                                      src={getIngredientImageUrl(
+                                                                        ing.image
+                                                                      )}
                                                                       alt={
                                                                         ing.name
                                                                       }
                                                                       fill
                                                                       sizes="24px"
                                                                       className="object-cover rounded"
+                                                                      unoptimized={
+                                                                        true
+                                                                      }
+                                                                      onError={(
+                                                                        e
+                                                                      ) => {
+                                                                        // Hide image on error (404 from Spoonacular)
+                                                                        e.currentTarget.style.display =
+                                                                          "none";
+                                                                      }}
                                                                     />
                                                                   </div>
                                                                 )}
@@ -1351,13 +1397,25 @@ const RecipePageContent = memo(() => {
                                                                 {eq.image && (
                                                                   <div className="relative w-6 h-6 rounded overflow-hidden">
                                                                     <Image
-                                                                      src={`https://img.spoonacular.com/equipment_100x100/${eq.image}`}
+                                                                      src={getEquipmentImageUrl(
+                                                                        eq.image
+                                                                      )}
                                                                       alt={
                                                                         eq.name
                                                                       }
                                                                       fill
                                                                       sizes="24px"
                                                                       className="object-cover rounded"
+                                                                      unoptimized={
+                                                                        true
+                                                                      }
+                                                                      onError={(
+                                                                        e
+                                                                      ) => {
+                                                                        // Hide image on error (404 from Spoonacular)
+                                                                        e.currentTarget.style.display =
+                                                                          "none";
+                                                                      }}
                                                                     />
                                                                   </div>
                                                                 )}

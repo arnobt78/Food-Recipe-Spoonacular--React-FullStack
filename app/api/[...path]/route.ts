@@ -40,6 +40,10 @@ import {
 import { prisma } from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
+import {
+  getPresetById,
+  presetToCloudinaryOptions,
+} from "../../../src/config/upload-presets";
 
 // Initialize Cloudinary
 cloudinary.config({
@@ -322,7 +326,7 @@ export async function GET(
         const userPrompt = `Convert this recipe search query into optimized search parameters: "${query.trim()}"`;
 
         let aiContent = "{}";
-        let searchParams: any = null;
+        let searchParams: Record<string, unknown> | null = null;
 
         // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
         // Try OpenRouter with Claude first
@@ -503,18 +507,23 @@ export async function GET(
 
         // Perform search with AI-optimized parameters
         const searchOptions: Parameters<typeof searchRecipes>[2] = {};
-        if (searchParams.diet) searchOptions.diet = searchParams.diet;
-        if (searchParams.cuisine) searchOptions.cuisine = searchParams.cuisine;
-        if (searchParams.maxReadyTime)
+        if (searchParams && typeof searchParams.diet === "string")
+          searchOptions.diet = searchParams.diet;
+        if (searchParams && typeof searchParams.cuisine === "string")
+          searchOptions.cuisine = searchParams.cuisine;
+        if (searchParams && typeof searchParams.maxReadyTime === "number")
           searchOptions.maxReadyTime = searchParams.maxReadyTime;
-        if (searchParams.type) searchOptions.type = searchParams.type;
-        if (searchParams.excludeIngredients)
+        if (searchParams && typeof searchParams.type === "string")
+          searchOptions.type = searchParams.type;
+        if (searchParams && typeof searchParams.excludeIngredients === "string")
           searchOptions.excludeIngredients = searchParams.excludeIngredients;
-        if (searchParams.includeIngredients)
+        if (searchParams && typeof searchParams.includeIngredients === "string")
           searchOptions.includeIngredients = searchParams.includeIngredients;
 
         const results = await searchRecipes(
-          searchParams.searchTerm || query.trim(),
+          (searchParams && typeof searchParams.searchTerm === "string"
+            ? searchParams.searchTerm
+            : null) || query.trim(),
           1,
           Object.keys(searchOptions).length > 0 ? searchOptions : undefined
         );
@@ -563,7 +572,7 @@ export async function GET(
           if (body.maxTime) maxTime = body.maxTime?.toString();
           if (body.excludeIngredients)
             excludeIngredients = body.excludeIngredients;
-        } catch (e) {
+        } catch (_e) {
           // If body parsing fails, use query params only
         }
       }
@@ -617,7 +626,7 @@ export async function GET(
         const fullPrompt = recommendationContext + `\n${systemPrompt}`;
 
         // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
-        let aiResponseData: any = null;
+        let aiResponseData: Record<string, unknown> | null = null;
 
         // Try OpenRouter with Claude first
         if (openRouterApiKey && !aiResponseData) {
@@ -819,20 +828,33 @@ export async function GET(
           addRecipeInformation: true,
           addRecipeNutrition: true,
         };
-        if (aiResponseData.diet) searchOptions.diet = aiResponseData.diet;
-        if (aiResponseData.cuisine)
+        if (aiResponseData && typeof aiResponseData.diet === "string")
+          searchOptions.diet = aiResponseData.diet;
+        if (aiResponseData && typeof aiResponseData.cuisine === "string")
           searchOptions.cuisine = aiResponseData.cuisine;
-        if (aiResponseData.maxReadyTime)
+        if (aiResponseData && typeof aiResponseData.maxReadyTime === "number")
           searchOptions.maxReadyTime = aiResponseData.maxReadyTime;
-        if (aiResponseData.type) searchOptions.type = aiResponseData.type;
-        if (aiResponseData.excludeIngredients)
+        if (aiResponseData && typeof aiResponseData.type === "string")
+          searchOptions.type = aiResponseData.type;
+        if (
+          aiResponseData &&
+          typeof aiResponseData.excludeIngredients === "string"
+        )
           searchOptions.excludeIngredients = aiResponseData.excludeIngredients;
-        if (aiResponseData.includeIngredients)
+        if (
+          aiResponseData &&
+          typeof aiResponseData.includeIngredients === "string"
+        )
           searchOptions.includeIngredients = aiResponseData.includeIngredients;
 
-        const number = aiResponseData.number || 10;
+        const number =
+          (aiResponseData && typeof aiResponseData.number === "number"
+            ? aiResponseData.number
+            : null) || 10;
         const results = await searchRecipes(
-          aiResponseData.searchTerm ||
+          (aiResponseData && typeof aiResponseData.searchTerm === "string"
+            ? aiResponseData.searchTerm
+            : null) ||
             query.trim() ||
             ingredients?.trim() ||
             "recipes",
@@ -910,7 +932,10 @@ Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
 Ingredients:
 ${
   recipeInfo.extendedIngredients
-    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    ?.map(
+      (ing: { original?: string; name?: string }) =>
+        `- ${ing.original || ing.name || ""}`
+    )
     .join("\n") || "Not available"
 }
 
@@ -947,7 +972,7 @@ Return ONLY valid JSON, no other text.`;
         const systemPrompt =
           "You are a nutrition and cooking expert. Analyze recipes and provide comprehensive insights. Return ONLY valid JSON, no other text.";
 
-        let analysisData: any = null;
+        let analysisData: Record<string, unknown> | null = null;
 
         // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
         // Try OpenRouter with Claude first
@@ -986,7 +1011,7 @@ Return ONLY valid JSON, no other text.`;
                   aiContent.match(/{[\s\S]*}/);
                 analysisData = JSON.parse(
                   jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
+                ) as Record<string, unknown>;
               } catch {
                 // Parse failed, try next provider
               }
@@ -1203,7 +1228,10 @@ Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
 Ingredients:
 ${
   recipeInfo.extendedIngredients
-    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    ?.map(
+      (ing: { original?: string; name?: string }) =>
+        `- ${ing.original || ing.name || ""}`
+    )
     .join("\n") || "Not available"
 }
 
@@ -1211,7 +1239,9 @@ Instructions:
 ${
   recipeInfo.instructions ||
   recipeInfo.analyzedInstructions
-    ?.map((inst: any) => inst.steps.map((s: any) => s.step).join("\n"))
+    ?.map((inst: { steps: Array<{ step: string }> }) =>
+      inst.steps.map((s) => s.step).join("\n")
+    )
     .join("\n\n") ||
   "Not available"
 }
@@ -1239,7 +1269,10 @@ Ready in minutes: ${recipeInfo.readyInMinutes || "Unknown"}
 Ingredients:
 ${
   recipeInfo.extendedIngredients
-    ?.map((ing: any) => `- ${ing.original || ing.name}`)
+    ?.map(
+      (ing: { original?: string; name?: string }) =>
+        `- ${ing.original || ing.name || ""}`
+    )
     .join("\n") || "Not available"
 }
 
@@ -1247,7 +1280,9 @@ Instructions:
 ${
   recipeInfo.instructions ||
   recipeInfo.analyzedInstructions
-    ?.map((inst: any) => inst.steps.map((s: any) => s.step).join("\n"))
+    ?.map((inst: { steps: Array<{ step: string }> }) =>
+      inst.steps.map((s) => s.step).join("\n")
+    )
     .join("\n\n") ||
   "Not available"
 }
@@ -1270,7 +1305,7 @@ Return ONLY valid JSON, no other text.`;
             ? "You are a culinary expert specializing in dietary recipe conversions. Convert recipes to specific dietary requirements while maintaining taste and nutrition. Return ONLY valid JSON, no other text."
             : "You are a cooking instructor. Simplify complex recipes for beginner cooks with clear instructions and tips. Return ONLY valid JSON, no other text.";
 
-        let modificationData: any = null;
+        let modificationData: Record<string, unknown> | null = null;
 
         // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
         if (openRouterApiKey && !modificationData) {
@@ -2025,7 +2060,7 @@ export async function POST(
               if (payload.name) userName = payload.name;
               if (payload.picture) userPicture = payload.picture;
             }
-          } catch (e) {
+          } catch (_e) {
             // If we can't decode token, use fallback
             console.warn(
               "Could not extract user info from token, using fallback"
@@ -2371,7 +2406,7 @@ export async function POST(
       const auth = await requireAuth(request);
       if (auth.response) return auth.response;
 
-      const { imageData, folder } = body;
+      const { imageData, folder, presetId, recipeId } = body;
       if (!imageData) {
         return jsonResponse({ error: "Image data is required" }, 400);
       }
@@ -2409,14 +2444,63 @@ export async function POST(
         );
       }
 
-      const uploadOptions: { folder?: string; [key: string]: unknown } = {
-        folder:
-          (typeof folder === "string" ? folder : null) ||
-          `recipe-app/${auth.userId}`,
-      };
+      // Validate presetId if provided
+      if (presetId && typeof presetId !== "string") {
+        return jsonResponse({ error: "Preset ID must be a string" }, 400);
+      }
+
+      // Get preset if presetId is provided
+      let preset = null;
+      if (presetId && typeof presetId === "string") {
+        preset = getPresetById(presetId);
+        if (!preset) {
+          return jsonResponse(
+            { error: `Upload preset "${presetId}" not found` },
+            400
+          );
+        }
+
+        // Validate file size against preset
+        const fileSizeMB = imageSizeBytes / (1024 * 1024);
+        if (fileSizeMB > preset.maxFileSize) {
+          return jsonResponse(
+            {
+              error: `Image size ${fileSizeMB.toFixed(
+                2
+              )}MB exceeds preset maximum of ${preset.maxFileSize}MB`,
+            },
+            400
+          );
+        }
+      }
+
+      // Build upload options
+      let uploadOptions: { folder?: string; [key: string]: unknown } = {};
+
+      // If preset is provided, use preset options
+      if (preset) {
+        uploadOptions = presetToCloudinaryOptions(preset, auth.userId);
+
+        // Override folder if recipeId is provided
+        if (recipeId && typeof recipeId === "number") {
+          uploadOptions.folder = `${preset.folder}/${auth.userId}/${recipeId}`;
+        }
+      } else {
+        // Fallback to original behavior if no preset
+        uploadOptions = {
+          folder:
+            (typeof folder === "string" ? folder : null) ||
+            `recipe-app/${auth.userId}`,
+        };
+      }
+
+      // Determine image format from base64 data or use default
+      const imageFormat = imageData.includes("data:image/")
+        ? imageData.split(";")[0].split("/")[1]
+        : "jpeg";
 
       const uploadResult = await cloudinary.uploader.upload(
-        `data:image/jpeg;base64,${base64Data}`,
+        `data:image/${imageFormat};base64,${base64Data}`,
         uploadOptions
       );
 
@@ -2425,6 +2509,9 @@ export async function POST(
         publicId: uploadResult.public_id,
         width: uploadResult.width,
         height: uploadResult.height,
+        format: uploadResult.format,
+        bytes: uploadResult.bytes,
+        eager: uploadResult.eager,
       });
     }
 
@@ -2466,8 +2553,22 @@ export async function POST(
         return jsonResponse({ error: "Invalid image URL format" }, 400);
       }
 
-      // Validate image type
-      const validImageTypes = ["main", "step", "ingredient", "other"];
+      // Validate image type - accept both old and new types
+      const validImageTypes = [
+        "main",
+        "step",
+        "ingredient",
+        "other",
+        "final",
+        "custom",
+      ];
+      // Map new types to old types for database compatibility
+      const imageTypeMap: Record<string, string> = {
+        final: "main",
+        custom: "other",
+      };
+      const mappedImageType = imageTypeMap[imageType] || imageType;
+
       if (!validImageTypes.includes(imageType)) {
         return jsonResponse(
           {
@@ -2491,7 +2592,7 @@ export async function POST(
         where: {
           userId: auth.userId!,
           recipeId: recipeIdNum,
-          imageType,
+          imageType: mappedImageType,
         },
         orderBy: { order: "desc" },
         select: { order: true },
@@ -2502,7 +2603,7 @@ export async function POST(
           userId: auth.userId!,
           recipeId: recipeIdNum,
           imageUrl: imageUrl as string,
-          imageType: imageType as string,
+          imageType: mappedImageType as string,
           order:
             order !== undefined ? Number(order) : (maxOrder?.order ?? 0) + 1,
           caption:
@@ -2519,6 +2620,296 @@ export async function POST(
         },
         201
       );
+    }
+
+    // Route: /api/email/share (POST) - Share recipe via email
+    if (path[0] === "email" && path[1] === "share" && path.length === 2) {
+      const auth = await requireAuth(request);
+      if (auth.response) return auth.response;
+
+      const {
+        recipeId,
+        recipeTitle,
+        recipeImage,
+        recipientEmail,
+        senderName,
+        message,
+      } = body;
+
+      // Validation
+      if (!recipeId || !recipeTitle || !recipientEmail) {
+        return jsonResponse(
+          { error: "Recipe ID, title, and recipient email are required" },
+          400
+        );
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (
+        typeof recipientEmail !== "string" ||
+        !emailRegex.test(recipientEmail)
+      ) {
+        return jsonResponse({ error: "Invalid email format" }, 400);
+      }
+
+      // Use authorized sender email from environment variable
+      const authorizedSenderEmail =
+        process.env.EMAIL_SENDER_ADDRESS || "arnobt78@gmail.com";
+
+      // Extract user name from JWT token if available
+      let userName: string | undefined;
+      try {
+        const authHeader = request.headers.get("authorization");
+        if (authHeader) {
+          const cleanToken = authHeader.replace(/^Bearer\s+/i, "");
+          const parts = cleanToken.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(
+              Buffer.from(parts[1], "base64url").toString("utf-8")
+            ) as { name?: string };
+            if (payload.name) userName = payload.name;
+          }
+        }
+      } catch {
+        // If we can't decode token, use fallback
+      }
+
+      const senderDisplayName = senderName || userName || "Recipe Spoonacular";
+      const recipeIdNum = String(recipeId);
+
+      // Generate timestamp and unique identifier for subject
+      const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const randomId = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, "0");
+      const subject = `Recipe Shared: ${recipeTitle} | ID: ${recipeIdNum} | ${timestamp}-${randomId}`;
+
+      // Try Resend first (better deliverability), fallback to Brevo
+      const resendToken = process.env.RESEND_TOKEN;
+      const brevoApiKey = process.env.BREVO_API_KEY;
+
+      let emailSent = false;
+      let errorMessage = "";
+
+      // Escape HTML to prevent XSS and ensure proper rendering
+      const escapeHtml = (str: string): string => {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      };
+
+      const safeRecipeTitle = escapeHtml(
+        typeof recipeTitle === "string" ? recipeTitle : ""
+      );
+      const safeSenderName = escapeHtml(
+        typeof senderDisplayName === "string"
+          ? senderDisplayName
+          : "Recipe Spoonacular"
+      );
+      const safeMessage =
+        message && typeof message === "string" ? escapeHtml(message) : "";
+      const recipeUrl = `${
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+      }/recipe/${recipeId}`;
+
+      // Email client compatible template with inline styles and table-based layout
+      const emailHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <title>Recipe Shared: ${safeRecipeTitle}</title>
+            <!--[if mso]>
+            <style type="text/css">
+              body, table, td {font-family: Arial, sans-serif !important;}
+            </style>
+            <![endif]-->
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, Helvetica, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5;">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 0;">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background-color: #f97316; padding: 40px 30px; text-align: center; border-radius: 0;">
+                        <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #ffffff; font-family: Arial, Helvetica, sans-serif;">
+                          🍳 Recipe Shared with You
+                        </h1>
+                      </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                      <td style="padding: 40px 30px; background-color: #ffffff;">
+                        <p style="margin: 0 0 20px 0; font-size: 16px; color: #333333; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                          Hello,
+                        </p>
+                        <p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                          <strong style="color: #f97316; font-weight: 600;">${safeSenderName}</strong> has shared a delicious recipe with you from Recipe Spoonacular.
+                        </p>
+                        <!-- Recipe Card -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin: 30px 0;">
+                          <tr>
+                            <td style="padding: 25px;">
+                              <h2 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; color: #1f2937; line-height: 1.3; font-family: Arial, Helvetica, sans-serif;">
+                                ${safeRecipeTitle}
+                              </h2>
+                              ${
+                                recipeImage
+                                  ? `
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                  <td align="center" style="padding: 0;">
+                                    <img src="${recipeImage}" alt="${safeRecipeTitle}" width="100%" style="max-width: 500px; height: auto; border-radius: 8px; display: block; margin: 0 auto;" />
+                                  </td>
+                                </tr>
+                              </table>
+                              `
+                                  : ""
+                              }
+                              ${
+                                message
+                                  ? `
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                  <td style="padding: 15px; background-color: #ffffff; border-left: 4px solid #f97316; font-style: italic; color: #4b5563; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                                    &quot;${safeMessage}&quot;
+                                  </td>
+                                </tr>
+                              </table>
+                              `
+                                  : ""
+                              }
+                            </td>
+                          </tr>
+                        </table>
+                        <!-- CTA Button -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                          <tr>
+                            <td align="center" style="padding: 0;">
+                              <a href="${recipeUrl}" style="display: inline-block; padding: 14px 32px; background-color: #f97316; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; font-family: Arial, Helvetica, sans-serif;">
+                                View Full Recipe & Instructions
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        <!-- Recipe ID -->
+                        <p style="margin: 20px 0 0 0; font-size: 11px; color: #9ca3af; font-family: monospace; line-height: 1.6;">
+                          Recipe ID: ${recipeIdNum} | Shared on ${timestamp}
+                        </p>
+                      </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                      <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                        <p style="margin: 5px 0; font-size: 12px; color: #6b7280; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                          This email was sent from Recipe Spoonacular
+                        </p>
+                        <p style="margin: 5px 0; font-size: 12px; color: #6b7280; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                          Recipe sharing service powered by Spoonacular API
+                        </p>
+                        <p style="margin: 20px 0 0 0; font-size: 12px; color: #6b7280; line-height: 1.6; font-family: Arial, Helvetica, sans-serif;">
+                          If you did not expect this email, please ignore it.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `;
+
+      // Try Resend first (better deliverability)
+      if (resendToken) {
+        try {
+          const resendResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${resendToken}`,
+            },
+            body: JSON.stringify({
+              from: `${senderDisplayName} <${authorizedSenderEmail}>`,
+              to: [recipientEmail],
+              subject: subject,
+              html: emailHtml,
+            }),
+          });
+
+          if (resendResponse.ok) {
+            emailSent = true;
+          } else {
+            const errorData = await resendResponse.json();
+            errorMessage = errorData.message || "Resend API error";
+            console.error("Resend API error:", errorData);
+          }
+        } catch (error) {
+          errorMessage =
+            error instanceof Error ? error.message : "Resend API error";
+          console.error("Resend API exception:", error);
+        }
+      }
+
+      // Fallback to Brevo if Resend failed
+      if (!emailSent && brevoApiKey) {
+        try {
+          const brevoResponse = await fetch(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "api-key": brevoApiKey,
+              },
+              body: JSON.stringify({
+                sender: {
+                  name: senderDisplayName,
+                  email: authorizedSenderEmail,
+                },
+                to: [{ email: recipientEmail }],
+                subject: subject,
+                htmlContent: emailHtml,
+              }),
+            }
+          );
+
+          if (brevoResponse.ok) {
+            emailSent = true;
+          } else {
+            const errorData = await brevoResponse.json();
+            errorMessage = errorData.message || "Brevo API error";
+            console.error("Brevo API error:", errorData);
+          }
+        } catch (error) {
+          errorMessage =
+            error instanceof Error ? error.message : "Brevo API error";
+          console.error("Brevo API exception:", error);
+        }
+      }
+
+      if (!emailSent) {
+        return jsonResponse(
+          {
+            error: `Failed to send email: ${
+              errorMessage || "No email service configured"
+            }`,
+          },
+          500
+        );
+      }
+
+      return jsonResponse({
+        success: true,
+        message: "Recipe shared successfully via email",
+      });
     }
 
     // Route: /api/recipes/notes (POST)

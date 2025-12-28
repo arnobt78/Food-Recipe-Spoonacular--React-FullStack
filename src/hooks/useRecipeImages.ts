@@ -48,12 +48,13 @@ export function useRecipeImages(recipeId: number | undefined, enabled: boolean =
  * @returns Mutation object with mutate, mutateAsync, isLoading, error, etc.
  */
 export function useUploadImage(): UseMutationResult<
-  { imageUrl: string; publicId: string; width: number; height: number },
+  { imageUrl: string; publicId: string; width: number; height: number; format?: string; bytes?: number; eager?: unknown },
   Error,
-  { imageFile: File | Blob; folder?: string }
+  { imageFile: File | Blob; folder?: string; presetId?: string; recipeId?: number }
 > {
   return useMutation({
-    mutationFn: ({ imageFile, folder }) => api.uploadImage(imageFile, folder),
+    mutationFn: ({ imageFile, folder, presetId, recipeId }) =>
+      api.uploadImage(imageFile, { folder, presetId, recipeId }),
     onSuccess: () => {
       toast.success("Image uploaded successfully!");
     },
