@@ -37,7 +37,7 @@
     }
   ],
   "model_versions": {
-    "last_validated": "2026-03-25",
-    "validated_by": "bootstrap"
+    "last_validated": "2026-06-09",
+    "validated_by": "agile-v-core sync"
   }
 }

@@ -18,4 +18,5 @@ Trace: cite REQ-XXXX in all outputs
 
 - Unified API: `app/api/[...path]/route.ts`
 - Client: `src/` · Server: `lib/`
-- Open REQ: REQ-0020 (business-insights N+1)
+- C1 shipped: REQ-0020…0023 complete
+- Next: user-directed scope or Human Gate 1

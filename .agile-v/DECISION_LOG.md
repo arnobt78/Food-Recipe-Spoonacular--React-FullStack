@@ -10,3 +10,8 @@
 | 2026-03-25T00:00:05Z | C1 | bootstrap | Single robots source: `app/robots.ts` only | Avoid conflicting `public/robots.txt` per agile-v guardrails | REQ-0017 |
 | 2026-03-25T00:00:07Z | C1 | bootstrap | Created 24 skill stubs + INDEX + ACTIVATION.md | Full agent roster for Infinity Loop | — |
 | 2026-06-09T00:00:00Z | C1 | build-agent-js | REQ-0020 shipped | Extract `lib/business-insights.ts` with consolidated SQL; Redis 60s cache + server invalidation on CRUD; `?probe=1` for status checks; SSR + React Query initialData; status poll 30s | REQ-0020 |
+| 2026-06-09T12:00:00Z | C1 | build-agent-js | REQ-0021 shipped | Global SSE via `lib/realtime/` + Redis pub/sub; `GET /api/events/stream`; `notifyCrud()` on 22 mutation sites; `RealtimeProvider` + `invalidateByAppEvent()` | REQ-0021 |
+| 2026-06-09T12:00:01Z | C1 | build-agent-js | REQ-0022 shipped | Removed Auth0 routes/packages; `lib/user-registration.ts` shared signup; NextAuth-only `requireAuth()` | REQ-0022 |
+| 2026-06-09T12:00:02Z | C1 | test-designer | REQ-0023 shipped | Vitest for business-insights + realtime publish; `npm run test` in CI/local | REQ-0023 |
+| 2026-06-09T12:00:03Z | C1 | build-agent-js | Stale Auth0 comments updated | `src/types.ts`, `prisma/schema.prisma` JSDoc aligned to NextAuth | REQ-0022 |
+| 2026-06-09T12:00:04Z | C1 | agile-v-core | `.agile-v/` synced to shipped wave | STATE, REQs 0021–0023, manifest, backlog, ATM, playbook | REQ-0020…0023 |

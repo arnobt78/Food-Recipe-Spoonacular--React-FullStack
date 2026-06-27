@@ -13,7 +13,8 @@
 ## Resume Protocol
 
 1. Read `.agile-v/STATE.md`
-2. Read `.agile-v/CHECKPOINTS.md` if any PENDING
+2. Read `.agile-v/PLAYBOOK.md` for project conventions
+3. Read `.agile-v/CHECKPOINTS.md` if any PENDING
 3. Load only current-stage files (paths, not full dump)
 
 ## Halt Conditions

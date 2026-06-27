@@ -18,14 +18,14 @@
 
 ### REQ-0003: Authentication [approved C1]
 **Priority:** CRITICAL  
-**Description:** NextAuth v5 — Google OAuth + Credentials (email/password).  
-**Verification:** Login/logout; session JWT; `requireAuth()` on protected API routes.  
-**Done:** AuthContext + auth.ts providers operational.
+**Description:** NextAuth v5 only — Google OAuth + Credentials (email/password). No Auth0.  
+**Verification:** Login/logout; session JWT; `requireAuth()` on protected API routes; signup via `/api/auth/signup-nextauth`.  
+**Done:** AuthContext + auth.ts; Auth0 removed (REQ-0022).
 
 ### REQ-0004: Favourites [approved C1]
 **Priority:** HIGH  
 **Description:** Authenticated users save/remove favourite recipes.  
-**Verification:** CRUD via `/api/recipes/favourite`; React Query invalidation.  
+**Verification:** CRUD via `/api/recipes/favourite`; React Query invalidation + realtime sync.  
 **Done:** Favourites tab shows user favourites only.
 
 ### REQ-0005: Collections [approved C1]
@@ -54,9 +54,9 @@
 
 ### REQ-0009: Two-Tier Caching [approved C1]
 **Priority:** MEDIUM  
-**Description:** Upstash Redis (server) + TanStack Query (client) with manual invalidation.  
-**Verification:** `withCache()` TTLs; queryInvalidation on mutations.  
-**Done:** Cache layers documented in CLAUDE.md.
+**Description:** Upstash Redis (server) + TanStack Query (client) with manual + realtime invalidation.  
+**Verification:** `withCache()` TTLs; `queryInvalidation` + `invalidateByAppEvent()` on mutations.  
+**Done:** Cache layers + SSE cross-tab sync (REQ-0021).
 
 ### REQ-0010: AI Features [approved C1]
 **Priority:** MEDIUM  
@@ -95,13 +95,13 @@
 ### REQ-0015: Business Insights [approved C1]
 **Priority:** MEDIUM  
 **Description:** Platform analytics dashboard (auth).  
-**Verification:** GET `/api/business-insights` returns stats.  
-**Done:** `/business-insights` page loads for authenticated users.
+**Verification:** GET `/api/business-insights` returns stats; N+1 fixed (REQ-0020).  
+**Done:** `/business-insights` SSR + cached aggregation.
 
 ### REQ-0016: API Status & Docs [approved C1]
 **Priority:** LOW  
 **Description:** `/api-status` health dashboard; `/api-docs` reference.  
-**Verification:** GET `/api/status`; static docs pages.  
+**Verification:** GET `/api/status`; static docs pages; SSR prefetch on api-status.  
 **Done:** Both routes accessible.
 
 ## Non-Functional — Production Guardrails
@@ -116,7 +116,7 @@
 **Priority:** HIGH  
 **Description:** Remote images use SafeImage (`next/image` first, native `<img>` on error).  
 **Verification:** `src/components/ui/safe-image.tsx`; remote Image usages migrated.  
-**Done:** Implemented 2026-03-25; no intentional delay on happy path.
+**Done:** Implemented 2026-03-25.
 
 ### REQ-0019: Logout UX [approved C1]
 **Priority:** MEDIUM  
@@ -124,14 +124,35 @@
 **Verification:** Navbar `handleLogout` calls `setSelectedTab("search")` after `logout()`.  
 **Done:** Implemented in Navbar.tsx.
 
-## Issues — C1 Backlog
+## Issues — C1 Shipped Wave
 
-### REQ-0020: Fix Business Insights N+1 Query [new C1]
+### REQ-0020: Fix Business Insights N+1 Query [approved C1]
 **Priority:** MEDIUM  
 **Source:** SENTRY_ERRORS.md — case 1  
-**Description:** `/api/business-insights` triggers repeated Prisma `User.count` queries (N+1 pattern, ~7 repeats).  
-**Verification:** Single aggregated query or batched counts; Sentry N+1 alert cleared.  
-**Done:** Shipped — `lib/business-insights.ts`, Redis cache, probe mode, SSR hydration.
+**Description:** `/api/business-insights` triggers repeated Prisma `User.count` queries (N+1 pattern).  
+**Verification:** Single aggregated query or batched counts; Sentry N+1 alert cleared post-deploy; TC-0020 pass.  
+**Done:** Shipped `0f30f8e` — `lib/business-insights.ts`, Redis 60s cache, probe mode, SSR hydration.
+
+### REQ-0021: Global Realtime SSE + Cross-Tab Cache Sync [approved C1]
+**Priority:** HIGH  
+**Source:** Realtime Consistency plan  
+**Description:** Server publishes CRUD events via Redis; clients subscribe on `GET /api/events/stream`; React Query invalidated cross-tab via `RealtimeProvider` + `invalidateByAppEvent()`.  
+**Verification:** Mutations call `notifyCrud()`; SSE reconnect; Vitest TC-0021 pass.  
+**Done:** Shipped `174dd3a` — `lib/realtime/`, `RealtimeProvider`, 22 mutation sites.
+
+### REQ-0022: NextAuth-Only Auth Consolidation [approved C1]
+**Priority:** HIGH  
+**Source:** Realtime Consistency plan  
+**Description:** Remove Auth0 routes/packages; consolidate signup via `lib/user-registration.ts`; session via NextAuth only.  
+**Verification:** No `@auth0/*` deps; legacy Auth0 routes removed; Google OAuth + credentials work.  
+**Done:** Shipped `174dd3a`; comment cleanup `2a6cf02`.
+
+### REQ-0023: Vitest Unit Test Baseline [approved C1]
+**Priority:** MEDIUM  
+**Source:** Realtime Consistency plan  
+**Description:** Automated unit tests for critical server libs (business-insights, realtime publish).  
+**Verification:** `npm run test` passes; TC-0020 + TC-0021 automated.  
+**Done:** Shipped `174dd3a` — `lib/__tests__/`.
 
 ---
 
@@ -140,7 +161,12 @@
 | REQ | Primary Artifacts | Tests |
 |-----|-------------------|-------|
 | REQ-0001 | ART-0001 | TC-0001 |
-| REQ-0003 | ART-0002 | TC-0002 |
+| REQ-0003 | ART-0002, ART-0007 | TC-0002 |
+| REQ-0009 | ART-0006 | TC-0021 |
 | REQ-0017 | ART-0003 | TC-0017 |
 | REQ-0018 | ART-0004 | TC-0018 |
+| REQ-0019 | — | TC-0019 |
 | REQ-0020 | ART-0005 | TC-0020 |
+| REQ-0021 | ART-0006 | TC-0021 |
+| REQ-0022 | ART-0007 | TC-0002 |
+| REQ-0023 | ART-0008 | TC-0020, TC-0021 |
