@@ -11,7 +11,7 @@
 | **Status**       | ACTIVE — ART-0010 shipped; await independent Red Team                 |
 | **Last Updated** | 2026-08-13T11:42:00Z                                                  |
 | **Agent**        | build-agent-js                                                        |
-| **Git Baseline** | pending this commit (REQ-0024 CR-0003)                                |
+| **Git Baseline** | `1e8ddab` (REQ-0024 CR-0003)                                      |
 
 ## Current Focus
 
