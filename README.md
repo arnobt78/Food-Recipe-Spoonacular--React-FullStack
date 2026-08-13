@@ -1,4 +1,4 @@
-# Recipe Guide, Discovery & Management Platform - Next.js, PostgreSQL, Redis, Spoonacular API, Contentful CMS FullStack Project
+# Recipe Guide, Discovery & Management Platform - Next.js, PostgreSQL, Redis, Spoonacular API, AI Search, Analysis, Contentful CMS Full-Stack Project
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
@@ -13,8 +13,8 @@
 A modern full-stack recipe discovery and management platform built with **Next.js 15**, **React 18**, **TypeScript**, **PostgreSQL**, and the **Spoonacular API**. Search, save, and manage recipes with favourites, collections, meal planning, shopping lists, AI-powered analysis, blog (Contentful), and business insights. Built for learning and production use.
 
 - **Live Demo:** [https://recipe-smart.vercel.app/](https://recipe-smart.vercel.app/)
-- **Security reports:** see [SECURITY.md](./SECURITY.md) (email [contact@arnobmahmud.com](mailto:contact@arnobmahmud.com))
-- **Author:** [Arnob Mahmud](https://www.arnobmahmud.com) 
+- **Security:** private reports → [SECURITY.md](./SECURITY.md) · [contact@arnobmahmud.com](mailto:contact@arnobmahmud.com)
+- **Author:** [Arnob Mahmud](https://www.arnobmahmud.com) · [GitHub @arnobt78](https://github.com/arnobt78) · [LinkedIn @arnob-mahmud-05839655](https://www.linkedin.com/in/arnob-mahmud-05839655/)
 
 ![Screenshot 2026-02-11 at 14 50 16](https://github.com/user-attachments/assets/e2390505-5975-4ad4-aa49-f648be3c9a10)
 ![Screenshot 2026-02-11 at 14 57 08](https://github.com/user-attachments/assets/f155310b-3aa2-47dd-af8f-b1c98f43464b)
@@ -88,23 +88,23 @@ The home route (`/`) is a **tabbed SPA-style shell**: Recipe Search, Favourites,
 
 ## Features
 
-| Feature | What a beginner should know |
-| ------- | --------------------------- |
-| **Recipe search** | Calls Spoonacular through `/api/recipes/search`. Filters: cuisine, diet, type, ingredients. Optional extra `API_KEY_2`… keys rotate when the free daily quota hits 402. |
-| **Recipe details** | `/recipe/[id]` loads instructions, nutrition, taste, wine pairing, similar recipes. |
-| **Favourites** | Saved in PostgreSQL per user. Heart on a card writes `/api/recipes/favourite`. |
-| **Collections** | Named lists of recipes with order and color. |
-| **Meal planning** | Week grid: breakfast, lunch, dinner, snack. |
-| **Shopping list** | Built from selected recipes; items stored as JSON on `ShoppingList`. |
-| **Notes and ratings** | One note per user per recipe. |
-| **Images / videos** | User uploads (Cloudinary) and YouTube-style URLs. Remote photos use `SafeImage` (Next Image, then native `<img>` on error). |
-| **AI** | Search, recommendations, analysis, modifications, weather queries. Shared client `lib/ai/` tries Groq → Gemini Flash → OpenRouter `:free` → Hugging Face. Missing keys skip that provider. |
-| **Blog** | Contentful via `/api/cms/blog`. Empty state if CMS env is unset. |
-| **Business insights** | Auth dashboard; aggregated SQL + Redis 60s cache (`lib/business-insights.ts`). |
-| **API status / docs** | `/api-status` and `/api-docs` for learners. |
-| **Filter presets** | Save search filters (auth). |
-| **Email share** | Resend or Brevo if configured. |
-| **Realtime** | After CRUD, server publishes an event; SSE `/api/events/stream` invalidates React Query in all open tabs. |
+| Feature               | What a beginner should know                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Recipe search**     | Calls Spoonacular through `/api/recipes/search`. Filters: cuisine, diet, type, ingredients. Optional extra `API_KEY_2`… keys rotate when the free daily quota hits 402.                    |
+| **Recipe details**    | `/recipe/[id]` loads instructions, nutrition, taste, wine pairing, similar recipes.                                                                                                        |
+| **Favourites**        | Saved in PostgreSQL per user. Heart on a card writes `/api/recipes/favourite`.                                                                                                             |
+| **Collections**       | Named lists of recipes with order and color.                                                                                                                                               |
+| **Meal planning**     | Week grid: breakfast, lunch, dinner, snack.                                                                                                                                                |
+| **Shopping list**     | Built from selected recipes; items stored as JSON on `ShoppingList`.                                                                                                                       |
+| **Notes and ratings** | One note per user per recipe.                                                                                                                                                              |
+| **Images / videos**   | User uploads (Cloudinary) and YouTube-style URLs. Remote photos use `SafeImage` (Next Image, then native `<img>` on error).                                                                |
+| **AI**                | Search, recommendations, analysis, modifications, weather queries. Shared client `lib/ai/` tries Groq → Gemini Flash → OpenRouter `:free` → Hugging Face. Missing keys skip that provider. |
+| **Blog**              | Contentful via `/api/cms/blog`. Empty state if CMS env is unset.                                                                                                                           |
+| **Business insights** | Auth dashboard; aggregated SQL + Redis 60s cache (`lib/business-insights.ts`).                                                                                                             |
+| **API status / docs** | `/api-status` and `/api-docs` for learners.                                                                                                                                                |
+| **Filter presets**    | Save search filters (auth).                                                                                                                                                                |
+| **Email share**       | Resend or Brevo if configured.                                                                                                                                                             |
+| **Realtime**          | After CRUD, server publishes an event; SSE `/api/events/stream` invalidates React Query in all open tabs.                                                                                  |
 
 ---
 
@@ -127,25 +127,25 @@ app/api/[...path]/route.ts     ← one serverless function, path[] routing
             → UI refetch (no full page reload)
 ```
 
-**Mental model:** Spoonacular owns the *recipes*. Your database owns *the user’s relationship* to those recipes (favourite, collection, meal slot). The catch-all route is a traffic cop: it reads `path` from the URL (`/api/collections/abc` → `["collections", "abc"]`) and runs the matching handler.
+**Mental model:** Spoonacular owns the _recipes_. Your database owns _the user’s relationship_ to those recipes (favourite, collection, meal slot). The catch-all route is a traffic cop: it reads `path` from the URL (`/api/collections/abc` → `["collections", "abc"]`) and runs the matching handler.
 
 ---
 
 ## Technology stack
 
-| Layer | What we use | Why it is here |
-| ----- | ----------- | -------------- |
-| Framework | Next.js **15.5.9** (App Router) | SSR pages, API routes, deploy on Vercel |
-| UI | React **18.3**, Tailwind **3.4**, daisyUI, Radix/shadcn, Framer Motion, Lucide | Accessible components + motion |
-| Language | TypeScript **5.7** | Types in `src/types.ts` and Prisma |
-| Database | PostgreSQL (Neon or any host) + Prisma **6** | User CRUD; Prisma 7 is not used |
-| Auth | NextAuth v5 (`auth.ts`) | JWT session; Google + Credentials |
-| Recipes | Spoonacular | Search and detail JSON |
-| Client cache | TanStack Query v5 | `staleTime: Infinity` until invalidation |
-| Server cache | Upstash Redis (optional) | Search/recipe/insights TTLs + SSE |
-| AI | Groq, Gemini, OpenRouter `:free`, Hugging Face | See `lib/ai/providers.ts` |
-| Lint / test | ESLint **9** (`eslint.config.mjs`), Vitest | `npm run lint` / `npm run test` |
-| Hosting | Vercel | `next build` on each push to `main` |
+| Layer        | What we use                                                                    | Why it is here                           |
+| ------------ | ------------------------------------------------------------------------------ | ---------------------------------------- |
+| Framework    | Next.js **15.5.9** (App Router)                                                | SSR pages, API routes, deploy on Vercel  |
+| UI           | React **18.3**, Tailwind **3.4**, daisyUI, Radix/shadcn, Framer Motion, Lucide | Accessible components + motion           |
+| Language     | TypeScript **5.7**                                                             | Types in `src/types.ts` and Prisma       |
+| Database     | PostgreSQL (Neon or any host) + Prisma **6**                                   | User CRUD; Prisma 7 is not used          |
+| Auth         | NextAuth v5 (`auth.ts`)                                                        | JWT session; Google + Credentials        |
+| Recipes      | Spoonacular                                                                    | Search and detail JSON                   |
+| Client cache | TanStack Query v5                                                              | `staleTime: Infinity` until invalidation |
+| Server cache | Upstash Redis (optional)                                                       | Search/recipe/insights TTLs + SSE        |
+| AI           | Groq, Gemini, OpenRouter `:free`, Hugging Face                                 | See `lib/ai/providers.ts`                |
+| Lint / test  | ESLint **9** (`eslint.config.mjs`), Vitest                                     | `npm run lint` / `npm run test`          |
+| Hosting      | Vercel                                                                         | `next build` on each push to `main`      |
 
 This is **not a Vite SPA**. The test runner is **Vitest**. The app runtime is **Next.js**.
 
@@ -153,20 +153,20 @@ This is **not a Vite SPA**. The test runner is **Vitest**. The app runtime is **
 
 ## Keywords (beginner glossary)
 
-| Keyword | Short meaning in this repo |
-| ------- | -------------------------- |
-| **App Router** | Next.js folders under `app/` are URLs. `app/page.tsx` is `/`. |
-| **Server Component** | Default in `app/`. Can fetch on the server. No `useState`. |
-| **Client Component** | File starts with `"use client"`. Needed for clicks, hooks, dialogs. |
-| **Catch-all route** | `app/api/[...path]/route.ts` handles `/api/anything/here`. |
-| **Prisma** | ORM: TypeScript talks to PostgreSQL using `schema.prisma`. |
-| **NextAuth / Auth.js** | Login library. Session cookie + JWT. |
-| **TanStack Query** | Caches API results in the browser; `invalidateQueries` after mutations. |
-| **SSE** | Server-Sent Events: a one-way stream so other tabs learn about CRUD. |
-| **Zod** | Schema validation on some forms (`@hookform/resolvers` + react-hook-form). |
-| **bcrypt** | One-way password hash. We never store raw passwords. |
-| **DSN** | Sentry project URL (`NEXT_PUBLIC_SENTRY_DSN`). |
-| **staleTime** | How long Query treats data as fresh. Infinity = until we invalidate. |
+| Keyword                | Short meaning in this repo                                                 |
+| ---------------------- | -------------------------------------------------------------------------- |
+| **App Router**         | Next.js folders under `app/` are URLs. `app/page.tsx` is `/`.              |
+| **Server Component**   | Default in `app/`. Can fetch on the server. No `useState`.                 |
+| **Client Component**   | File starts with `"use client"`. Needed for clicks, hooks, dialogs.        |
+| **Catch-all route**    | `app/api/[...path]/route.ts` handles `/api/anything/here`.                 |
+| **Prisma**             | ORM: TypeScript talks to PostgreSQL using `schema.prisma`.                 |
+| **NextAuth / Auth.js** | Login library. Session cookie + JWT.                                       |
+| **TanStack Query**     | Caches API results in the browser; `invalidateQueries` after mutations.    |
+| **SSE**                | Server-Sent Events: a one-way stream so other tabs learn about CRUD.       |
+| **Zod**                | Schema validation on some forms (`@hookform/resolvers` + react-hook-form). |
+| **bcrypt**             | One-way password hash. We never store raw passwords.                       |
+| **DSN**                | Sentry project URL (`NEXT_PUBLIC_SENTRY_DSN`).                             |
+| **staleTime**          | How long Query treats data as fresh. Infinity = until we invalidate.       |
 
 ---
 
@@ -260,12 +260,12 @@ Next.js loads `.env.local` automatically. **Never commit** `.env.local` or real 
 
 ### Do I need a `.env` file?
 
-| Situation | What you need |
-| --------- | ------------- |
-| Only using the live demo | Nothing. No env on your laptop. |
-| Local search + login + favourites | **Required** four: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL` |
-| Google login | Plus `GOOGLE_ID` and `GOOGLE_SECRET` |
-| Blog, AI, Redis, uploads, email, weather, analytics | Optional keys below; app degrades if they are empty |
+| Situation                                           | What you need                                                           |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Only using the live demo                            | Nothing. No env on your laptop.                                         |
+| Local search + login + favourites                   | **Required** four: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL` |
+| Google login                                        | Plus `GOOGLE_ID` and `GOOGLE_SECRET`                                    |
+| Blog, AI, Redis, uploads, email, weather, analytics | Optional keys below; app degrades if they are empty                     |
 
 ### Required (core local run)
 
@@ -325,23 +325,23 @@ QSTASH_TOKEN=
 
 ### How to get each key
 
-| Variable | Where to create it |
-| -------- | ------------------ |
-| `API_KEY` | [Spoonacular](https://spoonacular.com/food-api) → dashboard → API key |
-| `DATABASE_URL` | [Neon](https://neon.tech/) → connection string; add `?sslmode=require` |
-| `AUTH_SECRET` | Terminal: `openssl rand -base64 32` |
-| `GOOGLE_ID` / `GOOGLE_SECRET` | [Google Cloud Console](https://console.cloud.google.com/) → Credentials → OAuth 2.0 Web client. Redirect: `http://localhost:3000/api/auth/callback/google` (production: `https://your-domain/api/auth/callback/google`) |
-| `UPSTASH_REDIS_*` | [Upstash](https://upstash.com/) → Redis → URL + token |
-| `CMS_*` | [Contentful](https://www.contentful.com/) → Space → API keys (CDA) |
-| `CLOUDINARY_*` | [Cloudinary](https://cloudinary.com/) dashboard |
-| `GROQ_LLAMA_API_KEY` | [Groq Console](https://console.groq.com/) |
-| `GOOGLE_GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) |
-| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai/) keys |
-| `HUGGING_FACE_INFERENCE_API_KEY` | [Hugging Face](https://huggingface.co/settings/tokens) |
-| `OPENWEATHER_API_KEY` | [OpenWeather](https://openweathermap.org/api) |
-| `RESEND_TOKEN` / `BREVO_API_KEY` | [Resend](https://resend.com/) or [Brevo](https://www.brevo.com/) |
-| `NEXT_PUBLIC_SENTRY_DSN` | [Sentry](https://sentry.io/) → project DSN |
-| `NEXT_PUBLIC_POSTHOG_*` | [PostHog](https://posthog.com/) project API key |
+| Variable                         | Where to create it                                                                                                                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_KEY`                        | [Spoonacular](https://spoonacular.com/food-api) → dashboard → API key                                                                                                                                                   |
+| `DATABASE_URL`                   | [Neon](https://neon.tech/) → connection string; add `?sslmode=require`                                                                                                                                                  |
+| `AUTH_SECRET`                    | Terminal: `openssl rand -base64 32`                                                                                                                                                                                     |
+| `GOOGLE_ID` / `GOOGLE_SECRET`    | [Google Cloud Console](https://console.cloud.google.com/) → Credentials → OAuth 2.0 Web client. Redirect: `http://localhost:3000/api/auth/callback/google` (production: `https://your-domain/api/auth/callback/google`) |
+| `UPSTASH_REDIS_*`                | [Upstash](https://upstash.com/) → Redis → URL + token                                                                                                                                                                   |
+| `CMS_*`                          | [Contentful](https://www.contentful.com/) → Space → API keys (CDA)                                                                                                                                                      |
+| `CLOUDINARY_*`                   | [Cloudinary](https://cloudinary.com/) dashboard                                                                                                                                                                         |
+| `GROQ_LLAMA_API_KEY`             | [Groq Console](https://console.groq.com/)                                                                                                                                                                               |
+| `GOOGLE_GEMINI_API_KEY`          | [Google AI Studio](https://aistudio.google.com/)                                                                                                                                                                        |
+| `OPENROUTER_API_KEY`             | [OpenRouter](https://openrouter.ai/) keys                                                                                                                                                                               |
+| `HUGGING_FACE_INFERENCE_API_KEY` | [Hugging Face](https://huggingface.co/settings/tokens)                                                                                                                                                                  |
+| `OPENWEATHER_API_KEY`            | [OpenWeather](https://openweathermap.org/api)                                                                                                                                                                           |
+| `RESEND_TOKEN` / `BREVO_API_KEY` | [Resend](https://resend.com/) or [Brevo](https://www.brevo.com/)                                                                                                                                                        |
+| `NEXT_PUBLIC_SENTRY_DSN`         | [Sentry](https://sentry.io/) → project DSN                                                                                                                                                                              |
+| `NEXT_PUBLIC_POSTHOG_*`          | [PostHog](https://posthog.com/) project API key                                                                                                                                                                         |
 
 On **Vercel**: Project → Settings → Environment Variables. Use the **same names** as `.env.example` (including `GROQ_LLAMA_API_KEY`).
 
@@ -349,17 +349,17 @@ On **Vercel**: Project → Settings → Environment Variables. Use the **same na
 
 ## How to run
 
-| Command | Description |
-| ------- | ----------- |
-| `npm run dev` | Dev server with Turbopack → http://localhost:3000 |
-| `npm run dev:webpack` | Dev server with Webpack |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint 9 via `next lint` |
-| `npm run test` | Vitest (`lib/__tests__/`) |
-| `npm run prisma:generate` | Generate Prisma Client |
-| `npm run prisma:push` | Sync schema to the database |
-| `npm run prisma:studio` | Visual DB browser |
+| Command                   | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `npm run dev`             | Dev server with Turbopack → <http://localhost:3000> |
+| `npm run dev:webpack`     | Dev server with Webpack                             |
+| `npm run build`           | Production build                                    |
+| `npm run start`           | Serve the production build                          |
+| `npm run lint`            | ESLint 9 via `next lint`                            |
+| `npm run test`            | Vitest (`lib/__tests__/`)                           |
+| `npm run prisma:generate` | Generate Prisma Client                              |
+| `npm run prisma:push`     | Sync schema to the database                         |
+| `npm run prisma:studio`   | Visual DB browser                                   |
 
 ---
 
@@ -404,78 +404,78 @@ Protected routes call `requireAuth()` in `lib/api-utils-nextjs.ts`. The browser 
 
 ### Recipes
 
-| Method | Path | Notes |
-| ------ | ---- | ----- |
-| GET | `/api/recipes/search` | Query: `searchTerm`, `page`, filters |
-| GET | `/api/recipes/autocomplete` | Typeahead |
-| GET | `/api/recipes/[id]/information` | Full recipe |
-| GET | `/api/recipes/[id]/summary` | HTML summary |
-| GET | `/api/recipes/[id]/similar` | Similar recipes |
-| GET/POST/DELETE | `/api/recipes/favourite` | Auth |
-| GET/POST/DELETE | `/api/recipes/images` | Auth; query `recipeId` |
-| GET/POST/PUT/DELETE | `/api/recipes/notes` | Auth |
-| GET/POST/DELETE | `/api/recipes/videos` | Auth |
+| Method              | Path                            | Notes                                |
+| ------------------- | ------------------------------- | ------------------------------------ |
+| GET                 | `/api/recipes/search`           | Query: `searchTerm`, `page`, filters |
+| GET                 | `/api/recipes/autocomplete`     | Typeahead                            |
+| GET                 | `/api/recipes/[id]/information` | Full recipe                          |
+| GET                 | `/api/recipes/[id]/summary`     | HTML summary                         |
+| GET                 | `/api/recipes/[id]/similar`     | Similar recipes                      |
+| GET/POST/DELETE     | `/api/recipes/favourite`        | Auth                                 |
+| GET/POST/DELETE     | `/api/recipes/images`           | Auth; query `recipeId`               |
+| GET/POST/PUT/DELETE | `/api/recipes/notes`            | Auth                                 |
+| GET/POST/DELETE     | `/api/recipes/videos`           | Auth                                 |
 
 ### AI
 
-| Method | Path | Notes |
-| ------ | ---- | ----- |
-| POST | `/api/ai/search` | Natural-language search |
-| POST | `/api/ai/recommendations` | Suggestions |
-| POST | `/api/ai/analysis` | Nutrition / allergens style analysis |
-| POST | `/api/ai/modifications` | Dietary conversion, simplify |
+| Method | Path                      | Notes                                |
+| ------ | ------------------------- | ------------------------------------ |
+| POST   | `/api/ai/search`          | Natural-language search              |
+| POST   | `/api/ai/recommendations` | Suggestions                          |
+| POST   | `/api/ai/analysis`        | Nutrition / allergens style analysis |
+| POST   | `/api/ai/modifications`   | Dietary conversion, simplify         |
 
 All of these call `completeChat()` in `lib/ai/`. If no AI keys are set, the route should fail gracefully rather than crash the rest of the app.
 
 ### Collections, meal plan, shopping, filters
 
-| Method | Path |
-| ------ | ---- |
-| GET/POST | `/api/collections` |
-| GET/PUT/DELETE | `/api/collections/[id]` |
-| GET/POST/DELETE | `/api/collections/[id]/items` |
-| GET | `/api/collections/[id]/recipes` |
-| GET/POST/DELETE | `/api/meal-plan` |
-| GET/POST/PUT/DELETE | `/api/shopping-list` |
-| GET/POST/PUT/DELETE | `/api/filters/presets` |
+| Method              | Path                            |
+| ------------------- | ------------------------------- |
+| GET/POST            | `/api/collections`              |
+| GET/PUT/DELETE      | `/api/collections/[id]`         |
+| GET/POST/DELETE     | `/api/collections/[id]/items`   |
+| GET                 | `/api/collections/[id]/recipes` |
+| GET/POST/DELETE     | `/api/meal-plan`                |
+| GET/POST/PUT/DELETE | `/api/shopping-list`            |
+| GET/POST/PUT/DELETE | `/api/filters/presets`          |
 
 ### Platform
 
-| Method | Path | Notes |
-| ------ | ---- | ----- |
-| GET | `/api/events/stream` | SSE realtime |
-| GET | `/api/status` | Health |
-| GET | `/api/cms/blog` | Contentful list |
-| GET | `/api/cms/blog/[slug]` | One post |
-| GET | `/api/business-insights` | Auth stats |
-| GET | `/api/food/wine/dishes` | Spoonacular |
-| GET | `/api/food/wine/pairing` | Spoonacular |
-| POST | `/api/upload` | Cloudinary |
+| Method   | Path                       | Notes                      |
+| -------- | -------------------------- | -------------------------- |
+| GET      | `/api/events/stream`       | SSE realtime               |
+| GET      | `/api/status`              | Health                     |
+| GET      | `/api/cms/blog`            | Contentful list            |
+| GET      | `/api/cms/blog/[slug]`     | One post                   |
+| GET      | `/api/business-insights`   | Auth stats                 |
+| GET      | `/api/food/wine/dishes`    | Spoonacular                |
+| GET      | `/api/food/wine/pairing`   | Spoonacular                |
+| POST     | `/api/upload`              | Cloudinary                 |
 | GET/POST | `/api/weather/suggestions` | OpenWeather + AI query gen |
-| POST | `/api/email/share` | Resend/Brevo |
+| POST     | `/api/email/share`         | Resend/Brevo               |
 
 ### Auth (separate files, not the catch-all)
 
-| Path | Role |
-| ---- | ---- |
-| `/api/auth/[...nextauth]` | NextAuth (login, callback, session, signout) |
+| Path                        | Role                                                 |
+| --------------------------- | ---------------------------------------------------- |
+| `/api/auth/[...nextauth]`   | NextAuth (login, callback, session, signout)         |
 | `/api/auth/signup-nextauth` | Create Credentials user (`lib/user-registration.ts`) |
 
 ---
 
 ## Pages and routes
 
-| Route | Rendering | Description |
-| ----- | --------- | ----------- |
-| `/` | Dynamic | Search + tabs |
-| `/recipe/[id]` | Dynamic | Recipe detail |
-| `/blog` | Dynamic | Post list |
-| `/blog/[slug]` | Dynamic | Post |
-| `/business-insights` | Dynamic | Auth dashboard |
-| `/api-status` | Dynamic | Endpoint health |
-| `/api-docs` | Dynamic | Human API reference |
-| `/test-sentry` | Static | Error-tracking check |
-| `/robots.txt` | Static | From `app/robots.ts` |
+| Route                | Rendering | Description          |
+| -------------------- | --------- | -------------------- |
+| `/`                  | Dynamic   | Search + tabs        |
+| `/recipe/[id]`       | Dynamic   | Recipe detail        |
+| `/blog`              | Dynamic   | Post list            |
+| `/blog/[slug]`       | Dynamic   | Post                 |
+| `/business-insights` | Dynamic   | Auth dashboard       |
+| `/api-status`        | Dynamic   | Endpoint health      |
+| `/api-docs`          | Dynamic   | Human API reference  |
+| `/test-sentry`       | Static    | Error-tracking check |
+| `/robots.txt`        | Static    | From `app/robots.ts` |
 
 ---
 
@@ -516,12 +516,12 @@ Without Redis, in-tab invalidation still runs from the mutation hooks; cross-tab
 
 `lib/ai/` is a small OpenAI-compatible stack:
 
-| File | Job |
-| ---- | --- |
-| `providers.ts` | Ordered registry + env key names |
-| `client.ts` | `POST {baseUrl}/chat/completions`, 12s timeout, never throws |
-| `index.ts` | `completeChat()` walks providers/models |
-| `parse-json.ts` | Pull JSON out of LLM text |
+| File            | Job                                                          |
+| --------------- | ------------------------------------------------------------ |
+| `providers.ts`  | Ordered registry + env key names                             |
+| `client.ts`     | `POST {baseUrl}/chat/completions`, 12s timeout, never throws |
+| `index.ts`      | `completeChat()` walks providers/models                      |
+| `parse-json.ts` | Pull JSON out of LLM text                                    |
 
 Tests: `lib/__tests__/ai-fallback.test.ts` (TC-0024). More detail: [`docs/LLM_MODEL_SELECTION.md`](./docs/LLM_MODEL_SELECTION.md).
 
@@ -529,19 +529,19 @@ Tests: `lib/__tests__/ai-fallback.test.ts` (TC-0024). More detail: [`docs/LLM_MO
 
 ## Database schema
 
-Defined in `prisma/schema.prisma`. Recipe *content* is not copied into Postgres; we store Spoonacular `recipeId` plus user metadata.
+Defined in `prisma/schema.prisma`. Recipe _content_ is not copied into Postgres; we store Spoonacular `recipeId` plus user metadata.
 
-| Model | Purpose |
-| ----- | ------- |
-| `User` | `id`, `email`, `name`, `picture`, optional hashed `password` |
-| `FavouriteRecipes` | Unique `(recipeId, userId)` |
-| `RecipeCollection` / `CollectionItem` | Named lists + order |
-| `RecipeNote` | Content, rating, tags |
-| `MealPlan` / `MealPlanItem` | Week + meal type |
-| `ShoppingList` | Name, recipe ids, items JSON |
-| `RecipeImage` | Cloudinary URL + type |
-| `RecipeVideo` | External URL |
-| `FilterPreset` | Saved filters JSON |
+| Model                                 | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `User`                                | `id`, `email`, `name`, `picture`, optional hashed `password` |
+| `FavouriteRecipes`                    | Unique `(recipeId, userId)`                                  |
+| `RecipeCollection` / `CollectionItem` | Named lists + order                                          |
+| `RecipeNote`                          | Content, rating, tags                                        |
+| `MealPlan` / `MealPlanItem`           | Week + meal type                                             |
+| `ShoppingList`                        | Name, recipe ids, items JSON                                 |
+| `RecipeImage`                         | Cloudinary URL + type                                        |
+| `RecipeVideo`                         | External URL                                                 |
+| `FilterPreset`                        | Saved filters JSON                                           |
 
 User delete **cascades** to related rows.
 
@@ -560,7 +560,7 @@ import RecipeCard from "@/components/recipes/RecipeCard";
   recipe={recipe}
   isFavourite={false}
   onFavouriteButtonClick={(r) => toggleFavourite(r)}
-/>
+/>;
 ```
 
 Default click navigates to `/recipe/[id]`. Pass `onClick` to override.
@@ -578,7 +578,7 @@ import SearchInput from "@/components/search/SearchInput";
     runSearch(term);
   }}
   placeholder="Search recipes..."
-/>
+/>;
 ```
 
 Autocomplete uses `useAutocompleteRecipes` (debounced).
@@ -588,7 +588,7 @@ Autocomplete uses `useAutocompleteRecipes` (debounced).
 ```tsx
 import EmptyState from "@/components/common/EmptyState";
 
-<EmptyState message="No recipes yet" subtitle="Try another search." />
+<EmptyState message="No recipes yet" subtitle="Try another search." />;
 ```
 
 ### SafeImage
@@ -598,19 +598,19 @@ Use for any remote URL (Spoonacular, Cloudinary, Google avatars). Do not use raw
 ```tsx
 import { SafeImage } from "@/components/ui/safe-image";
 
-<SafeImage src={url} alt={title} width={400} height={300} />
+<SafeImage src={url} alt={title} width={400} height={300} />;
 ```
 
 ### Folder map
 
-| Folder | Role |
-| ------ | ---- |
-| `components/ui/` | Button, Card, Dialog, Tabs — portable shadcn |
-| `components/recipes/` | Cards, gallery, notes, share |
-| `components/auth/` | Login / register dialogs |
-| `components/layout/` | Navbar, Footer, tabs |
-| `components/skeletons/` | Loading placeholders |
-| `components/pages/` | Full client pages wired to hooks |
+| Folder                  | Role                                         |
+| ----------------------- | -------------------------------------------- |
+| `components/ui/`        | Button, Card, Dialog, Tabs — portable shadcn |
+| `components/recipes/`   | Cards, gallery, notes, share                 |
+| `components/auth/`      | Login / register dialogs                     |
+| `components/layout/`    | Navbar, Footer, tabs                         |
+| `components/skeletons/` | Loading placeholders                         |
+| `components/pages/`     | Full client pages wired to hooks             |
 
 ---
 
@@ -642,23 +642,23 @@ To reuse in another Next app: copy the hook, `src/api.ts` helpers, and the match
 
 ## Libraries and dependencies
 
-| Package | What it does here |
-| ------- | ----------------- |
-| `next` / `react` / `react-dom` | App framework and UI |
-| `next-auth` | Login session |
-| `@prisma/client` / `prisma` | Database |
-| `@tanstack/react-query` | Client cache and mutations |
-| `@upstash/redis` | Optional server cache + SSE seq |
-| `bcryptjs` | Password hashing |
-| `zod` + `react-hook-form` | Form validation |
-| `cloudinary` | Image upload API |
-| `@sentry/nextjs` | Errors (v10.x) |
-| `posthog-js` | Product analytics |
-| `framer-motion` | Animations |
-| `lucide-react` / `react-icons` | Icons |
-| `sonner` | Toasts |
-| `vitest` | Unit tests |
-| `eslint` 9 + `eslint-config-next` 15.5.9 | Lint |
+| Package                                  | What it does here               |
+| ---------------------------------------- | ------------------------------- |
+| `next` / `react` / `react-dom`           | App framework and UI            |
+| `next-auth`                              | Login session                   |
+| `@prisma/client` / `prisma`              | Database                        |
+| `@tanstack/react-query`                  | Client cache and mutations      |
+| `@upstash/redis`                         | Optional server cache + SSE seq |
+| `bcryptjs`                               | Password hashing                |
+| `zod` + `react-hook-form`                | Form validation                 |
+| `cloudinary`                             | Image upload API                |
+| `@sentry/nextjs`                         | Errors (v10.x)                  |
+| `posthog-js`                             | Product analytics               |
+| `framer-motion`                          | Animations                      |
+| `lucide-react` / `react-icons`           | Icons                           |
+| `sonner`                                 | Toasts                          |
+| `vitest`                                 | Unit tests                      |
+| `eslint` 9 + `eslint-config-next` 15.5.9 | Lint                            |
 
 Install the same majors if you extract a feature. Do not jump to Next 16 or Prisma 7 without a dedicated upgrade; this repo is pinned to Next 15.5.9 and Prisma 6.
 
@@ -678,14 +678,14 @@ Automated cases include TC-0020 (insights query count), TC-0021 (realtime payloa
 
 ## Reusing this project
 
-| You want | Copy / follow |
-| -------- | ------------- |
-| Tabbed recipe search UI | `src/components/search`, `recipes`, `hooks/useRecipes.ts` |
-| Auth + user tables | `auth.ts`, `lib/user-registration.ts`, Prisma `User` |
-| One Vercel function for many APIs | Catch-all `path[]` pattern |
-| CRUD that updates every tab | `notifyCrud` + `RealtimeProvider` + `queryInvalidation.ts` |
-| Free LLM calls | `lib/ai/` as a drop-in |
-| Remote images that survive optimizer 402s | `SafeImage` |
+| You want                                  | Copy / follow                                              |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| Tabbed recipe search UI                   | `src/components/search`, `recipes`, `hooks/useRecipes.ts`  |
+| Auth + user tables                        | `auth.ts`, `lib/user-registration.ts`, Prisma `User`       |
+| One Vercel function for many APIs         | Catch-all `path[]` pattern                                 |
+| CRUD that updates every tab               | `notifyCrud` + `RealtimeProvider` + `queryInvalidation.ts` |
+| Free LLM calls                            | `lib/ai/` as a drop-in                                     |
+| Remote images that survive optimizer 402s | `SafeImage`                                                |
 
 Keep env names, `requireAuth()` on writes, and never commit `.env.local`.
 

@@ -10,3 +10,4 @@
 | 2026-08-13T11:38:00Z | synthesis | build-agent-js | GATE-0002 + CR-0003; start ART-0010 tooling hygiene | REQ-0024 | 1.0.0 |
 | 2026-08-13T11:42:00Z | prove | build-agent-js | ART-0010 + TC-0025; npm test 12/12 lint 0 warnings build PASS | REQ-0024 | 1.0.0 |
 | 2026-08-13T11:48:00Z | evolve | build-agent-js | Unlink RISK-0005/0006 from REQ-0024 ID collision | REQ-0024 | 1.0.0 |
+| 2026-08-13T12:00:00Z | docs | documentation-agent | README/SECURITY audit; dedupe security bullets; agent write-through | — | 1.0.0 |

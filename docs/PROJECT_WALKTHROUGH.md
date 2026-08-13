@@ -67,4 +67,5 @@ AI (REQ-0010): `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KE
 | Auth0 removed | pass |
 | notifyCrud + client invalidation | pass (unchanged this wave) |
 | Vercel AI env names | match code; no rename |
-| Post-deploy | REQ-0024 on main `c005880`; Sentry N+1 (BL-0010) still open |
+| Post-deploy | REQ-0024 + README/SECURITY on main; Sentry N+1 (BL-0010) still open |
+| Learner docs | README.md + SECURITY.md (contact@arnobmahmud.com) |
