@@ -1,8 +1,8 @@
 /**
  * Sentry Server Configuration
  *
- * Error tracking and performance monitoring for server-side
- * Following DEVELOPMENT_RULES.md: Centralized configuration
+ * REQ-0024 / CR-0003 — @sentry/nextjs v10.x (not v11). Init behavior unchanged.
+ * Error tracking and performance monitoring for server-side.
  */
 
 import * as Sentry from "@sentry/nextjs";

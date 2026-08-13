@@ -265,7 +265,6 @@ cloudinary.config({
 
 // Type definitions
 // ShoppingListItem interface - kept for future reference
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface _ShoppingListItem {
   name: string;
   quantity: string;
@@ -2543,7 +2542,6 @@ export async function POST(
       );
     }
     body = bodyText ? JSON.parse(bodyText) : {};
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (_parseError) {
     if (
       request.headers.get("content-length") &&
@@ -4299,7 +4297,6 @@ export async function PUT(
       );
     }
     body = bodyText ? JSON.parse(bodyText) : {};
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (_parseError) {
     if (
       request.headers.get("content-length") &&
@@ -4478,7 +4475,6 @@ export async function DELETE(
       );
     }
     body = bodyText ? JSON.parse(bodyText) : {};
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (_parseError) {
     if (
       request.headers.get("content-length") &&

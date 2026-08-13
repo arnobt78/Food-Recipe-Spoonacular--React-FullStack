@@ -13,6 +13,7 @@ Compact map for codebase review. See `CLAUDE.md` for commands.
 | `src/hooks/` | React Query + `useRealtimeSync` |
 | `src/utils/queryInvalidation.ts` | RQ bust + `invalidateByAppEvent()` |
 | `lib/` | Prisma, Redis, business-insights, user-registration, realtime, `lib/ai/` (REQ-0010) |
+| `eslint.config.mjs` | ESLint 9 flat config (REQ-0024); Next 15.5.9 |
 
 ## Auth (NextAuth only)
 
@@ -61,6 +62,7 @@ AI (REQ-0010): `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KE
 |-------|--------|
 | test (12/12) + lint + build | pass |
 | REQ-0010 free-tier AI client | pass (TC-0024) |
+| REQ-0024 tooling hygiene | pass (TC-0025; ESLint 9, Sentry 10.70, caniuse-lite) |
 | Auth0 removed | pass |
 | notifyCrud + client invalidation | pass (unchanged this wave) |
 | Vercel AI env names | match code; no rename |

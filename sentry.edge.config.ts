@@ -1,8 +1,8 @@
 /**
  * Sentry Edge Configuration
  *
- * Error tracking for Edge runtime (middleware, edge functions)
- * Following DEVELOPMENT_RULES.md: Centralized configuration
+ * REQ-0024 / CR-0003 — @sentry/nextjs v10.x (not v11). Init behavior unchanged.
+ * Error tracking for Edge runtime.
  */
 
 import * as Sentry from "@sentry/nextjs";

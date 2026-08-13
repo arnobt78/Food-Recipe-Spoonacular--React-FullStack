@@ -3,7 +3,7 @@ eval_run_id: ER-C1-0002
 eval_timestamp: "2026-08-13T11:01:00Z"
 policy_version_ref: "1.0.0"
 eval_gate_status: IN_PROGRESS
-eval_gate_rationale: "CR-0002 npm test/lint/build PASS; Red Team pending"
+eval_gate_rationale: "CR-0003 npm test/lint/build PASS; REQ-0010 Red Team pending"
 thresholds:
   regression: vitest + manual
   performance: sentry
@@ -21,6 +21,7 @@ thresholds:
 | auth-consolidation | REQ-0022 | PASS | Auth0 removed; build OK |
 | vitest-baseline | REQ-0023 | PASS | 2/2 tests; lint + build green |
 | ai-free-tier-fallback | REQ-0010 | PASS | TC-0024; 12/12 vitest; lint + build 2026-08-13 |
+| tooling-hygiene | REQ-0024 | PASS | TC-0025; ESLint 9 + Sentry 10.70; Next 15.5.9 |
 
 ## Commands Run (2026-08-13)
 

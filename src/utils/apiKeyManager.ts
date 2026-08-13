@@ -49,7 +49,6 @@ function getAllApiKeys(): ApiKeyConfig[] {
 
   // Get additional API keys from environment (NEXT_PUBLIC_SPOONACULAR_API_KEY_2, _3, etc.)
   let index = 2;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const envKey = process.env[`NEXT_PUBLIC_SPOONACULAR_API_KEY_${index}`];
     if (!envKey) break;

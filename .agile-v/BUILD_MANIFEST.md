@@ -13,7 +13,8 @@
 | ART-0007 | C1 | REQ-0022 | shipped | NextAuth-only auth | `lib/user-registration.ts`, `lib/api-utils-nextjs.ts`, removed Auth0 routes/packages |
 | ART-0008 | C1 | REQ-0023 | shipped | Vitest baseline | `lib/__tests__/`, `vitest.config.ts`, `npm run test` |
 | ART-0009 | C1 | REQ-0010 | shipped | Free-tier AI fallback client | `lib/ai/`, `app/api/[...path]/route.ts` AI sites, `lib/__tests__/ai-fallback.test.ts` |
+| ART-0010 | C1 | REQ-0024 | shipped | Tooling hygiene | `eslint.config.mjs`, `@sentry/nextjs@10.70.0`, browserslist/caniuse-lite |
 
 ## Pending Builds (Stage 3)
 
-_None — CR-0002 synthesis complete. New work requires a new REQ or CR._
+_None — CR-0003 synthesis complete._

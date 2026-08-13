@@ -157,6 +157,14 @@
 **Verification:** `npm run test` passes; TC-0020 + TC-0021 automated.  
 **Done:** Shipped `174dd3a` — `lib/__tests__/`.
 
+### REQ-0024: Tooling Hygiene (ESLint 9, Sentry 10.x, browserslist) [approved C1]
+**Priority:** LOW  
+**CR:** CR-0003  
+**Source:** GATE-0002 (Vercel deprecation noise; stay on Next 15.5.9)  
+**Description:** Refresh `caniuse-lite`; migrate ESLint 8 → 9 with flat config; bump `@sentry/nextjs` within v10 only. Do not upgrade Next, React, or Prisma.  
+**Verification:** `npm run test && npm run lint && npm run build` pass; `eslint-config-next@15.5.9`; Sentry stays on 10.x (not 11).  
+**Done:** Shipped 2026-08-13 — ESLint 9 flat config, `@sentry/nextjs@10.70.0`, caniuse-lite refresh.
+
 ---
 
 ## Traceability Index
@@ -174,3 +182,4 @@
 | REQ-0021 | ART-0006 | TC-0021 |
 | REQ-0022 | ART-0007 | TC-0002 |
 | REQ-0023 | ART-0008 | TC-0020, TC-0021 |
+| REQ-0024 | ART-0010 | TC-0025 |

@@ -44,7 +44,6 @@ function getAllApiKeys(): string[] {
 
   // Get fallback keys (API_KEY_2, API_KEY_3, etc.)
   let index = 2;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const envKey = process.env[`API_KEY_${index}`];
     if (!envKey) break;

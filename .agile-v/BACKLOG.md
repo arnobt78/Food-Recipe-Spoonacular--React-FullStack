@@ -53,6 +53,13 @@
 **Acceptance:** TC-0024 pass; OpenRouter IDs `:free` or `openrouter/free`; no Groq Llama; Hugging Face is a real fetch.  
 **Effort:** M · **Status:** Done (`lib/ai/`, TC-0024)
 
+## BL-0012: Tooling hygiene (ESLint 9 / Sentry 10.x / browserslist)
+**Type:** Ops · **Priority:** LOW · **REQ:** REQ-0024  
+**Cycle:** C1 · **CR:** CR-0003  
+**Story:** As maintainer, I want ESLint 9 + current caniuse-lite + Sentry 10.x so Vercel deprecation noise drops without a Next 16 jump.  
+**Acceptance:** TC-0025; stay on Next 15.5.9; Sentry not 11.  
+**Effort:** S · **Status:** Done (`eslint.config.mjs`, Sentry 10.70.0)
+
 ## BL-0010: Post-deploy Sentry verification
 **Type:** Ops · **Priority:** MEDIUM · **REQ:** REQ-0020  
 **Story:** As operator, I confirm N+1 Sentry case 1 cleared on production after fix deploy.  

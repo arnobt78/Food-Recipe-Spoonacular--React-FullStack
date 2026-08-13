@@ -33,7 +33,6 @@ export default function TestSentryPage() {
         setPostHogStatus("⏳ PostHog is initializing...");
         // Check again after a delay
         setTimeout(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const stillLoaded =
             posthogAny.__loaded ||
             posthogAny.has_opted_in_capturing !== undefined;
