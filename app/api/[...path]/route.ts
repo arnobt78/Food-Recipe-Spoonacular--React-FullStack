@@ -53,6 +53,11 @@ import {
 import { publishAppEvent } from "../../../lib/realtime/publish";
 import type { AppEventType } from "../../../lib/realtime/types";
 import { createAppEventStream, SSE_HEADERS } from "../../../lib/realtime/stream";
+import {
+  completeChat,
+  parseJsonObjectFromLlm,
+  parseJsonStringArrayFromLlm,
+} from "../../../lib/ai";
 import * as Sentry from "@sentry/nextjs";
 
 /** Publish domain event + bust insights Redis (global stats) */
@@ -658,200 +663,33 @@ export async function GET(
         );
       }
 
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-      const groqApiKey = process.env.GROQ_LLAMA_API_KEY;
-
-      if (!openRouterApiKey && !geminiApiKey && !groqApiKey) {
-        return jsonResponse(
-          {
-            error:
-              "No AI API keys configured (OpenRouter, Gemini, or Groq required)",
-          },
-          500
-        );
-      }
-
       try {
         // System prompt for recipe search conversion
         const systemPrompt =
           "You are a recipe search assistant. Convert natural language queries into optimized recipe search terms for the Spoonacular API. Extract key information like: dish type, dietary requirements, ingredients, cooking time, cuisine type, meal type. Return ONLY a JSON object with these fields: { searchTerm: string, diet?: string, cuisine?: string, maxReadyTime?: number, type?: string, excludeIngredients?: string, includeIngredients?: string }";
         const userPrompt = `Convert this recipe search query into optimized search parameters: "${query.trim()}"`;
 
-        let aiContent = "{}";
-        let searchParams: Record<string, unknown> | null = null;
-
-        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
-        // Try OpenRouter with Claude first
-        if (openRouterApiKey) {
-          try {
-            const aiResponse = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${openRouterApiKey}`,
-                  "HTTP-Referer":
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-                  "X-Title": "Recipe Smart App",
-                },
-                body: JSON.stringify({
-                  model: "anthropic/claude-3.5-sonnet",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt },
-                  ],
-                  temperature: 0.3,
-                  max_tokens: 200,
-                }),
-              }
-            );
-
-            if (aiResponse.ok) {
-              const aiData = await aiResponse.json();
-              aiContent = aiData.choices?.[0]?.message?.content || "{}";
-              try {
-                searchParams = JSON.parse(aiContent);
-              } catch {
-                // Try parsing with regex if direct parse fails
-                const jsonMatch = aiContent.match(/{[\s\S]*}/);
-                if (jsonMatch) searchParams = JSON.parse(jsonMatch[0]);
-              }
-            }
-          } catch (openRouterError) {
-            console.warn(
-              "OpenRouter Claude failed, trying GPT fallback:",
-              openRouterError
-            );
-          }
-
-          // If Claude failed, try GPT-4o-mini on OpenRouter
-          if (!searchParams && openRouterApiKey) {
-            try {
-              const fallbackResponse = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "http://localhost:3000",
-                    "X-Title": "Recipe Smart App",
-                  },
-                  body: JSON.stringify({
-                    model: "openai/gpt-4o-mini",
-                    messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: userPrompt },
-                    ],
-                    temperature: 0.3,
-                    max_tokens: 200,
-                  }),
-                }
-              );
-
-              if (fallbackResponse.ok) {
-                const fallbackData = await fallbackResponse.json();
-                aiContent = fallbackData.choices?.[0]?.message?.content || "{}";
-                try {
-                  searchParams = JSON.parse(aiContent);
-                } catch {
-                  const jsonMatch = aiContent.match(/{[\s\S]*}/);
-                  if (jsonMatch) searchParams = JSON.parse(jsonMatch[0]);
-                }
-              }
-            } catch (gptError) {
-              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
-            }
-          }
+        // REQ-0010: Groq → Gemini → OpenRouter :free → Hugging Face
+        const chatResult = await completeChat(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          { temperature: 0.3, max_tokens: 200 },
+        );
+        if (!chatResult.ok && chatResult.kind === "not_configured") {
+          return jsonResponse(
+            {
+              error:
+                "No AI API keys configured (Groq, Gemini, OpenRouter, or Hugging Face required)",
+            },
+            500,
+          );
         }
 
-        // Fallback to Gemini if OpenRouter failed
-        if (!searchParams && geminiApiKey) {
-          try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-                    },
-                  ],
-                  generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 200,
-                  },
-                }),
-              }
-            );
-
-            if (geminiResponse.ok) {
-              const geminiData = await geminiResponse.json();
-              aiContent =
-                geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                searchParams = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, will use fallback below
-              }
-            }
-          } catch (geminiError) {
-            console.warn("Gemini failed, trying Groq:", geminiError);
-          }
-        }
-
-        // Final fallback to Groq
-        if (!searchParams && groqApiKey) {
-          try {
-            const groqResponse = await fetch(
-              "https://api.groq.com/openai/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${groqApiKey}`,
-                },
-                body: JSON.stringify({
-                  model: "llama-3.1-70b-versatile",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt },
-                  ],
-                  temperature: 0.3,
-                  max_tokens: 200,
-                }),
-              }
-            );
-
-            if (groqResponse.ok) {
-              const groqData = await groqResponse.json();
-              aiContent = groqData.choices?.[0]?.message?.content || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                searchParams = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, will use fallback below
-              }
-            }
-          } catch (groqError) {
-            console.warn("Groq failed, using simple fallback:", groqError);
-          }
-        }
+        let searchParams: Record<string, unknown> | null = chatResult.ok
+          ? parseJsonObjectFromLlm(chatResult.text)
+          : null;
 
         // If all AI providers failed, use simple fallback
         if (!searchParams) {
@@ -938,20 +776,6 @@ export async function GET(
         );
       }
 
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-      const groqApiKey = process.env.GROQ_LLAMA_API_KEY;
-
-      if (!openRouterApiKey && !geminiApiKey && !groqApiKey) {
-        return jsonResponse(
-          {
-            error:
-              "No AI API keys configured (OpenRouter, Gemini, or Groq required)",
-          },
-          500
-        );
-      }
-
       try {
         // Build context for AI recommendation
         let recommendationContext = "";
@@ -976,190 +800,27 @@ export async function GET(
 
         const systemPrompt =
           "You are a recipe recommendation assistant. Based on the user's context, generate a JSON object with search parameters optimized for the Spoonacular recipe API. Return ONLY a JSON object with these fields: { searchTerm: string, diet?: string, cuisine?: string, maxReadyTime?: number, includeIngredients?: string, excludeIngredients?: string, type?: string, number?: number (default 10) }";
-        const fullPrompt = recommendationContext + `\n${systemPrompt}`;
 
-        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Groq
-        let aiResponseData: Record<string, unknown> | null = null;
-
-        // Try OpenRouter with Claude first
-        if (openRouterApiKey && !aiResponseData) {
-          try {
-            const openRouterResponse = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${openRouterApiKey}`,
-                  "HTTP-Referer":
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-                  "X-Title": "Recipe Smart App",
-                },
-                body: JSON.stringify({
-                  model: "anthropic/claude-3.5-sonnet",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: recommendationContext },
-                  ],
-                  temperature: 0.7,
-                  max_tokens: 200,
-                }),
-              }
-            );
-
-            if (openRouterResponse.ok) {
-              const openRouterData = await openRouterResponse.json();
-              const aiContent =
-                openRouterData.choices?.[0]?.message?.content || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                aiResponseData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, will try next provider
-              }
-            }
-          } catch (openRouterError) {
-            console.warn(
-              "OpenRouter Claude failed, trying GPT:",
-              openRouterError
-            );
-          }
-
-          // If Claude failed, try GPT-4o-mini on OpenRouter
-          if (!aiResponseData && openRouterApiKey) {
-            try {
-              const gptResponse = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "http://localhost:3000",
-                    "X-Title": "Recipe Smart App",
-                  },
-                  body: JSON.stringify({
-                    model: "openai/gpt-4o-mini",
-                    messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: recommendationContext },
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 200,
-                  }),
-                }
-              );
-
-              if (gptResponse.ok) {
-                const gptData = await gptResponse.json();
-                const aiContent =
-                  gptData.choices?.[0]?.message?.content || "{}";
-                try {
-                  const jsonMatch =
-                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                    aiContent.match(/{[\s\S]*}/);
-                  aiResponseData = JSON.parse(
-                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                  );
-                } catch {
-                  // Parse failed, will try next provider
-                }
-              }
-            } catch (gptError) {
-              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
-            }
-          }
+        const chatResult = await completeChat(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: recommendationContext },
+          ],
+          { temperature: 0.7, max_tokens: 200 },
+        );
+        if (!chatResult.ok && chatResult.kind === "not_configured") {
+          return jsonResponse(
+            {
+              error:
+                "No AI API keys configured (Groq, Gemini, OpenRouter, or Hugging Face required)",
+            },
+            500,
+          );
         }
 
-        // Fallback to Gemini if OpenRouter failed
-        if (!aiResponseData && geminiApiKey) {
-          try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [{ text: fullPrompt }],
-                    },
-                  ],
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 200,
-                  },
-                }),
-              }
-            );
-
-            if (geminiResponse.ok) {
-              const geminiData = await geminiResponse.json();
-              const aiContent =
-                geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                aiResponseData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, will try next provider
-              }
-            }
-          } catch (geminiError) {
-            console.warn("Gemini failed, trying Groq:", geminiError);
-          }
-        }
-
-        // Final fallback to Groq
-        if (!aiResponseData && groqApiKey) {
-          try {
-            const groqResponse = await fetch(
-              "https://api.groq.com/openai/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${groqApiKey}`,
-                },
-                body: JSON.stringify({
-                  model: "llama-3.1-70b-versatile",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: recommendationContext },
-                  ],
-                  temperature: 0.7,
-                  max_tokens: 200,
-                }),
-              }
-            );
-
-            if (groqResponse.ok) {
-              const groqData = await groqResponse.json();
-              const aiContent = groqData.choices?.[0]?.message?.content || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                aiResponseData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, will use fallback below
-              }
-            }
-          } catch (groqError) {
-            console.warn("Groq failed, using simple fallback:", groqError);
-          }
-        }
+        let aiResponseData: Record<string, unknown> | null = chatResult.ok
+          ? parseJsonObjectFromLlm(chatResult.text)
+          : null;
 
         // If all AI providers failed, use simple fallback
         if (!aiResponseData) {
@@ -1251,20 +912,6 @@ export async function GET(
         );
       }
 
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-      const huggingFaceApiKey = process.env.HUGGING_FACE_INFERENCE_API_KEY;
-
-      if (!openRouterApiKey && !geminiApiKey && !huggingFaceApiKey) {
-        return jsonResponse(
-          {
-            error:
-              "No AI API keys configured (OpenRouter, Gemini, or Hugging Face required)",
-          },
-          500
-        );
-      }
-
       try {
         // Fetch recipe information for analysis context
         const recipeInfo = await getRecipeInformation(recipeId, {
@@ -1325,148 +972,26 @@ Return ONLY valid JSON, no other text.`;
         const systemPrompt =
           "You are a nutrition and cooking expert. Analyze recipes and provide comprehensive insights. Return ONLY valid JSON, no other text.";
 
-        let analysisData: Record<string, unknown> | null = null;
-
-        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
-        // Try OpenRouter with Claude first
-        if (openRouterApiKey && !analysisData) {
-          try {
-            const openRouterResponse = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${openRouterApiKey}`,
-                  "HTTP-Referer":
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-                  "X-Title": "Recipe Smart App",
-                },
-                body: JSON.stringify({
-                  model: "anthropic/claude-3.5-sonnet",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: analysisContext },
-                  ],
-                  temperature: 0.7,
-                  max_tokens: 1000,
-                }),
-              }
-            );
-
-            if (openRouterResponse.ok) {
-              const openRouterResult = await openRouterResponse.json();
-              const aiContent =
-                openRouterResult.choices?.[0]?.message?.content || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                analysisData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                ) as Record<string, unknown>;
-              } catch {
-                // Parse failed, try next provider
-              }
-            }
-          } catch (openRouterError) {
-            console.warn(
-              "OpenRouter Claude failed, trying GPT:",
-              openRouterError
-            );
-          }
-
-          // Try GPT-4o-mini on OpenRouter if Claude failed
-          if (!analysisData && openRouterApiKey) {
-            try {
-              const gptResponse = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "http://localhost:3000",
-                    "X-Title": "Recipe Smart App",
-                  },
-                  body: JSON.stringify({
-                    model: "openai/gpt-4o-mini",
-                    messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: analysisContext },
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 1000,
-                  }),
-                }
-              );
-
-              if (gptResponse.ok) {
-                const gptResult = await gptResponse.json();
-                const aiContent =
-                  gptResult.choices?.[0]?.message?.content || "{}";
-                try {
-                  const jsonMatch =
-                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                    aiContent.match(/{[\s\S]*}/);
-                  analysisData = JSON.parse(
-                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                  );
-                } catch {
-                  // Parse failed, try next provider
-                }
-              }
-            } catch (gptError) {
-              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
-            }
-          }
+        const chatResult = await completeChat(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: analysisContext },
+          ],
+          { temperature: 0.7, max_tokens: 1000 },
+        );
+        if (!chatResult.ok && chatResult.kind === "not_configured") {
+          return jsonResponse(
+            {
+              error:
+                "No AI API keys configured (Groq, Gemini, OpenRouter, or Hugging Face required)",
+            },
+            500,
+          );
         }
 
-        // Fallback to Gemini
-        if (!analysisData && geminiApiKey) {
-          try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [
-                        { text: `${systemPrompt}\n\n${analysisContext}` },
-                      ],
-                    },
-                  ],
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1000,
-                  },
-                }),
-              }
-            );
-
-            if (geminiResponse.ok) {
-              const geminiResult = await geminiResponse.json();
-              const aiContent =
-                geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                analysisData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, use fallback
-              }
-            }
-          } catch (geminiError) {
-            console.warn("Gemini failed, using simple fallback:", geminiError);
-          }
-        }
+        let analysisData: Record<string, unknown> | null = chatResult.ok
+          ? parseJsonObjectFromLlm(chatResult.text)
+          : null;
 
         // If all AI providers failed, use simple fallback based on recipe data
         if (!analysisData) {
@@ -1542,20 +1067,6 @@ Return ONLY valid JSON, no other text.`;
         return jsonResponse(
           { error: "Valid type parameter required (dietary or simplify)" },
           400
-        );
-      }
-
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-      const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-      const huggingFaceApiKey = process.env.HUGGING_FACE_INFERENCE_API_KEY;
-
-      if (!openRouterApiKey && !geminiApiKey && !huggingFaceApiKey) {
-        return jsonResponse(
-          {
-            error:
-              "No AI API keys configured (OpenRouter, Gemini, or Hugging Face required)",
-          },
-          500
         );
       }
 
@@ -1658,149 +1169,26 @@ Return ONLY valid JSON, no other text.`;
             ? "You are a culinary expert specializing in dietary recipe conversions. Convert recipes to specific dietary requirements while maintaining taste and nutrition. Return ONLY valid JSON, no other text."
             : "You are a cooking instructor. Simplify complex recipes for beginner cooks with clear instructions and tips. Return ONLY valid JSON, no other text.";
 
-        let modificationData: Record<string, unknown> | null = null;
-
-        // Fallback chain: OpenRouter (Claude) -> OpenRouter (GPT) -> Gemini -> Hugging Face (simple fallback)
-        if (openRouterApiKey && !modificationData) {
-          try {
-            const openRouterResponse = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${openRouterApiKey}`,
-                  "HTTP-Referer":
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-                  "X-Title": "Recipe Smart App",
-                },
-                body: JSON.stringify({
-                  model: "anthropic/claude-3.5-sonnet",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: modificationContext },
-                  ],
-                  temperature: 0.7,
-                  max_tokens: 1500,
-                }),
-              }
-            );
-
-            if (openRouterResponse.ok) {
-              const openRouterResult = await openRouterResponse.json();
-              const aiContent =
-                openRouterResult.choices?.[0]?.message?.content || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                modificationData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, try next provider
-              }
-            }
-          } catch (openRouterError) {
-            console.warn(
-              "OpenRouter Claude failed, trying GPT:",
-              openRouterError
-            );
-          }
-
-          // Try GPT-4o-mini on OpenRouter if Claude failed
-          if (!modificationData && openRouterApiKey) {
-            try {
-              const gptResponse = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_API_URL ||
-                      "http://localhost:3000",
-                    "X-Title": "Recipe Smart App",
-                  },
-                  body: JSON.stringify({
-                    model: "openai/gpt-4o-mini",
-                    messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: modificationContext },
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 1500,
-                  }),
-                }
-              );
-
-              if (gptResponse.ok) {
-                const gptResult = await gptResponse.json();
-                const aiContent =
-                  gptResult.choices?.[0]?.message?.content || "{}";
-                try {
-                  const jsonMatch =
-                    aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                    aiContent.match(/{[\s\S]*}/);
-                  modificationData = JSON.parse(
-                    jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                  );
-                } catch {
-                  // Parse failed, try next provider
-                }
-              }
-            } catch (gptError) {
-              console.warn("OpenRouter GPT failed, trying Gemini:", gptError);
-            }
-          }
+        const chatResult = await completeChat(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: modificationContext },
+          ],
+          { temperature: 0.7, max_tokens: 1500 },
+        );
+        if (!chatResult.ok && chatResult.kind === "not_configured") {
+          return jsonResponse(
+            {
+              error:
+                "No AI API keys configured (Groq, Gemini, OpenRouter, or Hugging Face required)",
+            },
+            500,
+          );
         }
 
-        // Fallback to Gemini
-        if (!modificationData && geminiApiKey) {
-          try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [
-                        {
-                          text: `${systemPrompt}\n\n${modificationContext}`,
-                        },
-                      ],
-                    },
-                  ],
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1500,
-                  },
-                }),
-              }
-            );
-
-            if (geminiResponse.ok) {
-              const geminiResult = await geminiResponse.json();
-              const aiContent =
-                geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              try {
-                const jsonMatch =
-                  aiContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-                  aiContent.match(/{[\s\S]*}/);
-                modificationData = JSON.parse(
-                  jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiContent
-                );
-              } catch {
-                // Parse failed, use fallback
-              }
-            }
-          } catch (geminiError) {
-            console.warn("Gemini failed, using simple fallback:", geminiError);
-          }
-        }
+        let modificationData: Record<string, unknown> | null = chatResult.ok
+          ? parseJsonObjectFromLlm(chatResult.text)
+          : null;
 
         // Simple fallback if all AI providers failed
         if (!modificationData) {
@@ -2184,12 +1572,7 @@ Return ONLY valid JSON, no other text.`;
         const location = weatherData.name || city || `${lat},${lon}`;
         const icon = weatherData.weather[0]?.icon || "01d";
 
-        // Use AI to generate diverse recipe queries based on weather, location, and conditions
-        const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-        const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-        const groqApiKey = process.env.GROQ_API_KEY;
-
-        // Build context for AI query generation
+        // REQ-0010: shared free-tier chain; hardcoded queries if AI is unconfigured or fails
         const weatherContext = `Weather conditions:
 - Location: ${location}
 - Temperature: ${temperature}°C
@@ -2209,150 +1592,22 @@ Return ONLY a JSON array of search query strings, like: ["soup", "stew", "curry"
         let searchQueries: string[] = [];
         let aiReasoning = "";
 
-        // Try AI to generate queries
-        if (openRouterApiKey || geminiApiKey || groqApiKey) {
-          try {
-            // Try OpenRouter first
-            if (openRouterApiKey) {
-              const openRouterResponse = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_APP_URL ||
-                      "http://localhost:3000",
-                    "X-Title": "Recipe Spoonacular",
-                  },
-                  body: JSON.stringify({
-                    model: "openai/gpt-4o-mini",
-                    messages: [
-                      {
-                        role: "system",
-                        content:
-                          "You are a culinary expert. Generate diverse recipe search queries as a JSON array of strings. Return ONLY the JSON array, no other text.",
-                      },
-                      { role: "user", content: weatherContext },
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 200,
-                  }),
-                }
-              );
-
-              if (openRouterResponse.ok) {
-                const openRouterData = await openRouterResponse.json();
-                const aiContent =
-                  openRouterData.choices?.[0]?.message?.content || "[]";
-                try {
-                  const jsonMatch =
-                    aiContent.match(/\[[\s\S]*?\]/) ||
-                    aiContent.match(/\[.*\]/);
-                  if (jsonMatch) {
-                    searchQueries = JSON.parse(jsonMatch[0]);
-                    aiReasoning = `AI-generated ${searchQueries.length} diverse recipe queries based on weather conditions`;
-                  }
-                } catch (parseError) {
-                  console.warn(
-                    "[Weather API] Failed to parse OpenRouter response:",
-                    parseError
-                  );
-                }
-              }
-            }
-
-            // Fallback to Gemini
-            if (searchQueries.length === 0 && geminiApiKey) {
-              const geminiResponse = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    contents: [
-                      {
-                        parts: [
-                          {
-                            text: `Generate diverse recipe search queries as a JSON array. ${weatherContext}`,
-                          },
-                        ],
-                      },
-                    ],
-                    generationConfig: {
-                      temperature: 0.7,
-                      maxOutputTokens: 200,
-                    },
-                  }),
-                }
-              );
-
-              if (geminiResponse.ok) {
-                const geminiData = await geminiResponse.json();
-                const aiContent =
-                  geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-                try {
-                  const jsonMatch = aiContent.match(/\[[\s\S]*?\]/);
-                  if (jsonMatch) {
-                    searchQueries = JSON.parse(jsonMatch[0]);
-                    aiReasoning = `AI-generated ${searchQueries.length} diverse recipe queries based on weather conditions`;
-                  }
-                } catch (parseError) {
-                  console.warn(
-                    "[Weather API] Failed to parse Gemini response:",
-                    parseError
-                  );
-                }
-              }
-            }
-
-            // Final fallback to Groq
-            if (searchQueries.length === 0 && groqApiKey) {
-              const groqResponse = await fetch(
-                "https://api.groq.com/openai/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${groqApiKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: "llama-3.1-70b-versatile",
-                    messages: [
-                      {
-                        role: "system",
-                        content:
-                          "Generate diverse recipe search queries as a JSON array of strings. Return ONLY the JSON array.",
-                      },
-                      { role: "user", content: weatherContext },
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 200,
-                  }),
-                }
-              );
-
-              if (groqResponse.ok) {
-                const groqData = await groqResponse.json();
-                const aiContent =
-                  groqData.choices?.[0]?.message?.content || "[]";
-                try {
-                  const jsonMatch = aiContent.match(/\[[\s\S]*?\]/);
-                  if (jsonMatch) {
-                    searchQueries = JSON.parse(jsonMatch[0]);
-                    aiReasoning = `AI-generated ${searchQueries.length} diverse recipe queries based on weather conditions`;
-                  }
-                } catch (parseError) {
-                  console.warn(
-                    "[Weather API] Failed to parse Groq response:",
-                    parseError
-                  );
-                }
-              }
-            }
-          } catch (aiError) {
-            console.warn("[Weather API] AI query generation failed:", aiError);
+        const weatherChat = await completeChat(
+          [
+            {
+              role: "system",
+              content:
+                "You are a culinary expert. Generate diverse recipe search queries as a JSON array of strings. Return ONLY the JSON array, no other text.",
+            },
+            { role: "user", content: weatherContext },
+          ],
+          { temperature: 0.7, max_tokens: 200 },
+        );
+        if (weatherChat.ok) {
+          const parsed = parseJsonStringArrayFromLlm(weatherChat.text);
+          if (parsed) {
+            searchQueries = parsed;
+            aiReasoning = `AI-generated ${searchQueries.length} diverse recipe queries based on weather conditions`;
           }
         }
 
@@ -4399,15 +3654,10 @@ export async function POST(
         const location = weatherData.name || city || `${lat},${lon}`;
         const icon = weatherData.weather[0]?.icon || "01d";
 
-        // Determine recipe suggestions based on weather using AI
-        const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-        const geminiApiKey = process.env.GOOGLE_GEMINI_API_KEY;
-        const groqApiKey = process.env.GROQ_LLAMA_API_KEY;
-
+        // REQ-0010: shared free-tier chain; hardcoded query if AI is unconfigured or fails
         let aiReasoning = "";
         let searchQuery = "";
 
-        // Create weather-based search query using AI
         const weatherPrompt = `Based on the current weather conditions:
 - Temperature: ${temperature}°C
 - Condition: ${condition} (${description})
@@ -4428,142 +3678,20 @@ Return ONLY a JSON object with this exact structure:
   "reasoning": "brief explanation of why these recipes suit this weather (max 200 chars)"
 }`;
 
-        // Try AI APIs in fallback order: OpenRouter → Gemini → Groq
-        let aiResponseData: Record<string, unknown> | null = null;
-
-        if (openRouterApiKey) {
-          try {
-            const openRouterResponse = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${openRouterApiKey}`,
-                  "HTTP-Referer":
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-                  "X-Title": "Recipe Spoonacular",
-                },
-                body: JSON.stringify({
-                  model: "anthropic/claude-3.5-sonnet",
-                  messages: [
-                    {
-                      role: "system",
-                      content:
-                        "You are a culinary expert. Analyze weather conditions and suggest appropriate recipe types. Return ONLY valid JSON, no other text.",
-                    },
-                    { role: "user", content: weatherPrompt },
-                  ],
-                  temperature: 0.7,
-                  max_tokens: 300,
-                }),
-              }
-            );
-
-            if (openRouterResponse.ok) {
-              const openRouterData = await openRouterResponse.json();
-              const content =
-                openRouterData.choices?.[0]?.message?.content || "";
-              try {
-                aiResponseData = JSON.parse(content);
-              } catch {
-                // Try to extract JSON from markdown code blocks
-                const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-                if (jsonMatch) {
-                  aiResponseData = JSON.parse(jsonMatch[1]);
-                }
-              }
-            }
-          } catch (_error) {
-            // Fall through to next AI service
-          }
-        }
-
-        if (!aiResponseData && geminiApiKey) {
-          try {
-            const geminiResponse = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [
-                        {
-                          text: `${weatherPrompt}\n\nReturn ONLY valid JSON, no other text.`,
-                        },
-                      ],
-                    },
-                  ],
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 300,
-                  },
-                }),
-              }
-            );
-
-            if (geminiResponse.ok) {
-              const geminiData = await geminiResponse.json();
-              const content =
-                geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-              try {
-                aiResponseData = JSON.parse(content);
-              } catch {
-                const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-                if (jsonMatch) {
-                  aiResponseData = JSON.parse(jsonMatch[1]);
-                }
-              }
-            }
-          } catch (_error) {
-            // Fall through to next AI service
-          }
-        }
-
-        if (!aiResponseData && groqApiKey) {
-          try {
-            const groqResponse = await fetch(
-              "https://api.groq.com/openai/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${groqApiKey}`,
-                },
-                body: JSON.stringify({
-                  messages: [
-                    {
-                      role: "system",
-                      content:
-                        "You are a culinary expert. Analyze weather conditions and suggest appropriate recipe types. Return ONLY valid JSON, no other text.",
-                    },
-                    { role: "user", content: weatherPrompt },
-                  ],
-                  model: "llama-3.1-70b-versatile",
-                  temperature: 0.7,
-                  max_tokens: 300,
-                }),
-              }
-            );
-
-            if (groqResponse.ok) {
-              const groqData = await groqResponse.json();
-              const content = groqData.choices?.[0]?.message?.content || "";
-              try {
-                aiResponseData = JSON.parse(content);
-              } catch {
-                const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-                if (jsonMatch) {
-                  aiResponseData = JSON.parse(jsonMatch[1]);
-                }
-              }
-            }
-          } catch (_error) {
-            // Fall through to default
-          }
-        }
+        const weatherChat = await completeChat(
+          [
+            {
+              role: "system",
+              content:
+                "You are a culinary expert. Analyze weather conditions and suggest appropriate recipe types. Return ONLY valid JSON, no other text.",
+            },
+            { role: "user", content: weatherPrompt },
+          ],
+          { temperature: 0.7, max_tokens: 300 },
+        );
+        const aiResponseData = weatherChat.ok
+          ? parseJsonObjectFromLlm(weatherChat.text)
+          : null;
 
         // Extract search query and reasoning from AI response
         if (aiResponseData) {

@@ -30,7 +30,7 @@ Project-specific operating guide for the Infinity Loop on this codebase.
 1 Requirements → 2 Validation → [Gate 1] → 3 Synthesis → 4 Verification → [Gate 2] → 5 Acceptance
 ```
 
-**Current:** Stage 4 partial — synthesis wave shipped (REQ-0020…0023).
+**Current:** Stage 4 partial — REQ-0020…0023 + REQ-0010 CR-0002 (`lib/ai/`) shipped. GATE-0001 closed. Red Team / Gate 2 pending.
 
 ## Adding Work
 

@@ -58,11 +58,14 @@
 **Verification:** `withCache()` TTLs; `queryInvalidation` + `invalidateByAppEvent()` on mutations.  
 **Done:** Cache layers + SSE cross-tab sync (REQ-0021).
 
-### REQ-0010: AI Features [approved C1]
+### REQ-0010: AI Features [modified C1]
 **Priority:** MEDIUM  
-**Description:** AI search, recommendations, analysis, modifications with provider fallback chain.  
-**Verification:** `/api/ai/*` endpoints; graceful degradation when keys missing.  
-**Done:** Fallback chain operational.
+**Was:** Paid/legacy model IDs (`claude-3.5-sonnet`, `gpt-4o-mini`, `gemini-1.5-flash`, `llama-3.1-70b-versatile`) duplicated in the catch-all route; Hugging Face key unused.  
+**Now:** Shared OpenAI-compatible fallback client (`lib/ai/`) with free-tier-only chains: Groq (`gpt-oss` / `qwen3.6`) → Gemini Flash/Flash-Lite → OpenRouter `:free` → Hugging Face router.  
+**CR:** CR-0002  
+**Description:** AI search, recommendations, analysis, modifications, and weather query generation use one provider fallback chain. OpenRouter IDs must be `:free` (or `openrouter/free`). Groq must not use Llama IDs. Gemini uses the OpenAI-compat endpoint. Hugging Face is a real last-rung fetch, not a key-presence check.  
+**Verification:** `/api/ai/*` and weather-AI paths call `completeChat()`; TC-0024 pass; graceful degradation when keys missing.  
+**Done:** Shipped 2026-08-13 — `lib/ai/` Groq → Gemini → OpenRouter `:free` → Hugging Face.
 
 ## Platform — User Content
 
@@ -163,6 +166,7 @@
 | REQ-0001 | ART-0001 | TC-0001 |
 | REQ-0003 | ART-0002, ART-0007 | TC-0002 |
 | REQ-0009 | ART-0006 | TC-0021 |
+| REQ-0010 | ART-0009 | TC-0024 |
 | REQ-0017 | ART-0003 | TC-0017 |
 | REQ-0018 | ART-0004 | TC-0018 |
 | REQ-0019 | — | TC-0019 |

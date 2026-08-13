@@ -12,7 +12,8 @@
 | ART-0006 | C1 | REQ-0021 | shipped | Realtime SSE + invalidation | `lib/realtime/`, `src/components/providers/RealtimeProvider.tsx`, `src/hooks/useRealtimeSync.ts`, `src/utils/queryInvalidation.ts` |
 | ART-0007 | C1 | REQ-0022 | shipped | NextAuth-only auth | `lib/user-registration.ts`, `lib/api-utils-nextjs.ts`, removed Auth0 routes/packages |
 | ART-0008 | C1 | REQ-0023 | shipped | Vitest baseline | `lib/__tests__/`, `vitest.config.ts`, `npm run test` |
+| ART-0009 | C1 | REQ-0010 | shipped | Free-tier AI fallback client | `lib/ai/`, `app/api/[...path]/route.ts` AI sites, `lib/__tests__/ai-fallback.test.ts` |
 
 ## Pending Builds (Stage 3)
 
-_None — C1 shipped wave complete. New work requires new REQ or change request._
+_None — CR-0002 synthesis complete. New work requires a new REQ or CR._

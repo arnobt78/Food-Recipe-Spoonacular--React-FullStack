@@ -46,6 +46,13 @@
 **Acceptance:** `npm run test` green; TC-0020 + TC-0021.  
 **Effort:** S · **Status:** Done (`174dd3a`)
 
+## BL-0011: Free-tier AI fallback client
+**Type:** Enhancement · **Priority:** MEDIUM · **REQ:** REQ-0010  
+**Cycle:** C1 · **CR:** CR-0002  
+**Story:** As operator, I want AI features to use currently available free-tier models so Groq/Gemini/OpenRouter/HF keep working without paid IDs.  
+**Acceptance:** TC-0024 pass; OpenRouter IDs `:free` or `openrouter/free`; no Groq Llama; Hugging Face is a real fetch.  
+**Effort:** M · **Status:** Done (`lib/ai/`, TC-0024)
+
 ## BL-0010: Post-deploy Sentry verification
 **Type:** Ops · **Priority:** MEDIUM · **REQ:** REQ-0020  
 **Story:** As operator, I confirm N+1 Sentry case 1 cleared on production after fix deploy.  

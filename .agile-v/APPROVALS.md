@@ -2,9 +2,8 @@
 
 | GATE-ID | Gate | Cycle | Scope | Decision | Conditions | Approver | Role | Timestamp | Evidence |
 |---------|------|-------|-------|----------|------------|----------|------|-----------|----------|
-| — | — | — | Pending Gate 1 after Stage 2 validation | — | — | — | — | — | — |
+| GATE-0001 | Human Gate 1 | C1 | REQ-0010 CR-0002 AI free-tier fallback only | Approved | Security hotfix and app-wide CRUD rewrite deferred | Cursor plan confirmation (product owner) | Product Owner / Tech Lead | 2026-08-13T10:53:00Z | resume_token=av-c1-hg1-20260813-a7f3 INTERRUPT-ID=INT-0001 plan=ai_free-tier_fallback |
 
 ## Pending
 
-- **Gate 1:** Approve C1 baseline REQUIREMENTS.md + RISK_REGISTER.md
-- **Gate 2:** Pending Stages 3–4 + EVAL_RESULTS PASS
+- **Gate 2:** Pending independent Red Team + `eval_gate_status` PASS or WAIVED.

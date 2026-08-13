@@ -11,6 +11,7 @@
 | TC-0019 | C1 | REQ-0019 | manual | Logout from favourites tab → search tab, no reload | pass |
 | TC-0020 | C1 | REQ-0020 | automated | business-insights: ≤1 User count query per uncached request | pass (vitest) |
 | TC-0021 | C1 | REQ-0021 | automated | realtime publish: event payload shape + Redis channel | pass (vitest) |
+| TC-0024 | C1 | REQ-0010 | automated | AI fallback: skip unconfigured; 429 skips provider; OpenRouter `:free`; no Groq Llama; Gemini OpenAI-compat host; HF invoked last; 402 billing; first success short-circuits | pass (vitest) |
 
 ## Regression Baseline
 

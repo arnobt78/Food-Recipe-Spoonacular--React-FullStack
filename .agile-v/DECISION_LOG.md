@@ -15,3 +15,6 @@
 | 2026-06-09T12:00:02Z | C1 | test-designer | REQ-0023 shipped | Vitest for business-insights + realtime publish; `npm run test` in CI/local | REQ-0023 |
 | 2026-06-09T12:00:03Z | C1 | build-agent-js | Stale Auth0 comments updated | `src/types.ts`, `prisma/schema.prisma` JSDoc aligned to NextAuth | REQ-0022 |
 | 2026-06-09T12:00:04Z | C1 | agile-v-core | `.agile-v/` synced to shipped wave | STATE, REQs 0021–0023, manifest, backlog, ATM, playbook | REQ-0020…0023 |
+| 2026-08-13T10:40:00Z | C1 | agile-v-core | Resume reconcile; halt at Human Gate 1 | HEAD is `cf6625d` not `2a6cf02`; no new product REQ this session; Gate 1 never recorded; synthesis already shipped. Next scope is Human-Decision (PLAN options A/B/C). FLAG-001: `/api/debug/auth-info` lists all users to any authenticated caller. | REQ-0001…0023 |
+| 2026-08-13T10:53:00Z | C1 | build-agent-js | GATE-0001 approved AI-only CR-0002 | User confirmed Cursor plan; implement shared `lib/ai/` free-tier fallback for REQ-0010. Security hotfix deferred. | REQ-0010 |
+| 2026-08-13T11:05:00Z | C1 | build-agent-js | ART-0009 shipped | Shared OpenAI-compat client; Groq gpt-oss/qwen3.6; Gemini 2.5 flash; OpenRouter :free; HF router actually called. TC-0024 12/12. Red Team not executed. | REQ-0010 |

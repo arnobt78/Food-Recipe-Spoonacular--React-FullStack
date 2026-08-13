@@ -12,7 +12,7 @@ Compact map for codebase review. See `CLAUDE.md` for commands.
 | `src/components/providers/` | `RootLayoutProviders`, `RealtimeProvider` |
 | `src/hooks/` | React Query + `useRealtimeSync` |
 | `src/utils/queryInvalidation.ts` | RQ bust + `invalidateByAppEvent()` |
-| `lib/` | Prisma, Redis, business-insights, user-registration, realtime |
+| `lib/` | Prisma, Redis, business-insights, user-registration, realtime, `lib/ai/` (REQ-0010) |
 
 ## Auth (NextAuth only)
 
@@ -49,15 +49,19 @@ CRUD → notifyCrud(domain) → Redis insights bust + publishAppEvent
 ## Env
 
 See `.env.example` — core: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL`, `UPSTASH_REDIS_*`
+AI (REQ-0010): `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KEY`, `HUGGING_FACE_INFERENCE_API_KEY`
 
-## Audit (2026-06-27)
+## AI fallback (REQ-0010 / CR-0002)
+
+`lib/ai/` — Groq (`gpt-oss` / `qwen3.6`) → Gemini `2.5-flash` → OpenRouter `:free` → HF router. Catch-all `/api/ai/*` + weather-AI call `completeChat()`. No paid/Llama IDs.
+
+## Audit (2026-08-13)
 
 | Check | Status |
 |-------|--------|
-| test (2/2) + lint + build | pass |
+| test (12/12) + lint + build | pass |
+| REQ-0010 free-tier AI client | pass (TC-0024) |
 | Auth0 removed | pass |
-| notifyCrud (22 sites) + client invalidation | pass |
-| SSR force-dynamic (7 pages) | pass |
-| Vitest TC-0020 + TC-0021 | pass |
-| `.env.example` synced | pass |
-| Post-deploy ops | Sentry N+1 verify; remove Auth0 env from Vercel; optional disable Sentry Replay in SDK |
+| notifyCrud + client invalidation | pass (unchanged this wave) |
+| Vercel AI env names | match code; no rename |
+| Post-deploy | Redeploy after this commit; Sentry N+1 (BL-0010) still open |
