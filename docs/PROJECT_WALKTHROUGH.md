@@ -49,7 +49,8 @@ CRUD → notifyCrud(domain) → Redis insights bust + publishAppEvent
 
 ## Env
 
-See `.env.example` — core: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL`, `UPSTASH_REDIS_*`
+See `.env.example` — core: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL`
+Learner docs: root `README.md`. Private vulns: `SECURITY.md` → contact@arnobmahmud.com.
 AI (REQ-0010): `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KEY`, `HUGGING_FACE_INFERENCE_API_KEY`
 
 ## AI fallback (REQ-0010 / CR-0002)

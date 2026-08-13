@@ -20,4 +20,4 @@
 | 2026-08-13T11:05:00Z | C1 | build-agent-js | ART-0009 shipped | Shared OpenAI-compat client; Groq gpt-oss/qwen3.6; Gemini 2.5 flash; OpenRouter :free; HF router actually called. TC-0024 12/12. Red Team not executed. | REQ-0010 |
 | 2026-08-13T11:38:00Z | C1 | build-agent-js | GATE-0002 approved CR-0003 / REQ-0024 | Tooling only: browserslist, ESLint 9 on Next 15.5.9, Sentry 10.x. No Next 16 / Prisma 7 / CRUD. | REQ-0024 |
 | 2026-08-13T11:42:00Z | C1 | build-agent-js | ART-0010 shipped | ESLint 9 + eslint.config.mjs; @sentry/nextjs@10.70.0; caniuse-lite refreshed. Pinned @eslint/js@9 (not 10). next lint kept. | REQ-0024 |
-| 2026-08-13T11:48:00Z | C1 | build-agent-js | RISK-0005/0006 unlinked from REQ-0024 | REQ-0024 is tooling CR-0003; security hotfix still needs a new gated REQ. | REQ-0024 |
+| 2026-08-13T11:55:00Z | C1 | documentation-agent | Educational README + SECURITY.md | Title/screenshots unchanged; env, API, reuse, private reports. | — |

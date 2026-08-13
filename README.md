@@ -8,10 +8,13 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-NeonDB-336791)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC)](https://tailwindcss.com/)
 [![Spoonacular API](https://img.shields.io/badge/Spoonacular-API-22C55E)](https://spoonacular.com/food-api)
+[![launch with diploi badge](https://diploi.com/launch.svg)](https://diploi.com/launch/arnobt78/Recipe-Guide-Discovery-Management-Platform--NextJS-Spoonacular-FullStack)
 
 A modern full-stack recipe discovery and management platform built with **Next.js 15**, **React 18**, **TypeScript**, **PostgreSQL**, and the **Spoonacular API**. Search, save, and manage recipes with favourites, collections, meal planning, shopping lists, AI-powered analysis, blog (Contentful), and business insights. Built for learning and production use.
 
 - **Live Demo:** [https://recipe-smart.vercel.app/](https://recipe-smart.vercel.app/)
+- **Security reports:** see [SECURITY.md](./SECURITY.md) (email [contact@arnobmahmud.com](mailto:contact@arnobmahmud.com))
+- **Author:** [Arnob Mahmud](https://www.arnobmahmud.com) 
 
 ![Screenshot 2026-02-11 at 14 50 16](https://github.com/user-attachments/assets/e2390505-5975-4ad4-aa49-f648be3c9a10)
 ![Screenshot 2026-02-11 at 14 57 08](https://github.com/user-attachments/assets/f155310b-3aa2-47dd-af8f-b1c98f43464b)
@@ -39,588 +42,684 @@ A modern full-stack recipe discovery and management platform built with **Next.j
 
 - [Overview](#overview)
 - [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [How to Run](#how-to-run)
-- [Project Walkthrough](#project-walkthrough)
-- [API Endpoints](#api-endpoints)
-- [Routes](#routes)
-- [Database Schema](#database-schema)
-- [Components & Reusability](#components--reusability)
-- [Hooks & Data Fetching](#hooks--data-fetching)
+- [How the app works](#how-the-app-works)
+- [Technology stack](#technology-stack)
+- [Keywords (beginner glossary)](#keywords-beginner-glossary)
+- [Project structure](#project-structure)
+- [Getting started](#getting-started)
+- [Environment variables](#environment-variables)
+- [How to run](#how-to-run)
+- [Project walkthrough](#project-walkthrough)
+- [API endpoints](#api-endpoints)
+- [Pages and routes](#pages-and-routes)
+- [Authentication](#authentication)
+- [Caching and realtime updates](#caching-and-realtime-updates)
+- [AI fallback client](#ai-fallback-client)
+- [Database schema](#database-schema)
+- [Components and reusability](#components-and-reusability)
+- [Hooks and data fetching](#hooks-and-data-fetching)
+- [Libraries and dependencies](#libraries-and-dependencies)
+- [Testing and quality](#testing-and-quality)
+- [Reusing this project](#reusing-this-project)
 - [Keywords](#keywords)
 - [Conclusion](#conclusion)
+- [License](#license)
+- [Security](#security)
 
 ---
 
 ## Overview
 
-**Recipe Guide** is an educational and production-ready full-stack application that demonstrates:
+**Recipe Guide** is an educational and production-ready full-stack app. You can use the [live demo](https://recipe-smart.vercel.app/) with no setup. To run it on your machine you copy `.env.example` to `.env.local` and fill in at least the **core** variables below.
 
-- **Next.js 15** App Router with server and client components
-- **NextAuth v5** for authentication (Google OAuth + email/password via Credentials)
-- **Prisma** + **PostgreSQL** (e.g. NeonDB) for user data, favourites, collections, meal plans, shopping lists, notes, images, and videos
-- **Spoonacular API** for recipe search, details, autocomplete, and similar recipes
-- **Unified API handler** at `/api/[...path]` that routes requests by path (recipes, collections, meal-plan, shopping-list, CMS, AI, weather, etc.)
-- **Optional integrations:** Contentful (blog), Cloudinary (image uploads), Upstash Redis (caching), OpenRouter/Gemini/Groq/Hugging Face (AI), OpenWeather (weather-based suggestions), Resend/Brevo (email sharing), Sentry (errors), PostHog (analytics), QStash (scheduled jobs)
+What you will learn by reading and running this repo:
 
-The app uses a **single-page experience** on the home route (`/`) with tab-based navigation: **Recipe Search**, **Favourites**, **Collections**, **Meal Plan**, and **Shopping List**. Recipe detail is a separate dynamic route `/recipe/[id]`. All auth-protected features require a logged-in user; logout clears session and redirects to the search tab without a full page refresh.
+- **Next.js 15 App Router** — server pages in `app/`, interactive UI in `src/`
+- **NextAuth v5** — Google OAuth + email/password (Credentials). Passwords are hashed with bcrypt. There is no Auth0.
+- **Prisma + PostgreSQL** — users, favourites, collections, meal plans, shopping lists, notes, images, videos
+- **Spoonacular Food API** — search, detail, autocomplete, similar recipes, wine pairing
+- **One catch-all API** — almost every REST path lives in `app/api/[...path]/route.ts` so Vercel Hobby stays within function limits
+- **TanStack Query** — client cache; mutations call `notifyCrud()` so lists update without a full page refresh (including other tabs)
+- **Optional extras** — Redis, Contentful blog, Cloudinary uploads, Groq/Gemini/OpenRouter/Hugging Face AI, OpenWeather, Resend/Brevo email, Sentry, PostHog, QStash
+
+The home route (`/`) is a **tabbed SPA-style shell**: Recipe Search, Favourites, Collections, Meal Plan, Shopping List. Recipe detail is `/recipe/[id]`. Auth-only tabs appear after login. Logout returns to the search tab without a full reload.
 
 ---
 
 ## Features
 
-| Feature               | Description                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Recipe Search**     | Advanced search with filters (cuisine, diet, type, ingredients). Spoonacular API with optional API key rotation. |
-| **Recipe Details**    | Full recipe info: instructions, ingredients, nutrition, taste, wine pairing, similar recipes.                    |
-| **Favourites**        | Save and manage favourite recipes (auth required).                                                               |
-| **Collections**       | Create custom recipe collections with custom ordering (auth required).                                           |
-| **Meal Planning**     | Weekly meal planner with breakfast, lunch, dinner, snack slots (auth required).                                  |
-| **Shopping List**     | Auto-generated shopping lists from selected recipes (auth required).                                             |
-| **Recipe Notes**      | Personal notes and ratings per recipe (auth required).                                                           |
-| **Recipe Images**     | User-uploaded images per recipe (Cloudinary, auth required).                                                     |
-| **Recipe Videos**     | User-added videos (YouTube, etc.) per recipe (auth required).                                                    |
-| **AI Features**       | Recipe analysis, recommendations, modifications, weather-based suggestions (optional API keys).                  |
-| **Blog**              | Contentful CMS–powered blog list and post pages.                                                                 |
-| **Business Insights** | Platform statistics, AI predictions, trends (auth required).                                                     |
-| **API Status**        | Real-time API endpoint health monitoring.                                                                        |
-| **API Docs**          | Endpoint documentation grouped by category.                                                                      |
-| **Filter Presets**    | Save and load search filter presets (auth required).                                                             |
-| **Email Sharing**     | Share recipes via email (Resend or Brevo).                                                                       |
+| Feature | What a beginner should know |
+| ------- | --------------------------- |
+| **Recipe search** | Calls Spoonacular through `/api/recipes/search`. Filters: cuisine, diet, type, ingredients. Optional extra `API_KEY_2`… keys rotate when the free daily quota hits 402. |
+| **Recipe details** | `/recipe/[id]` loads instructions, nutrition, taste, wine pairing, similar recipes. |
+| **Favourites** | Saved in PostgreSQL per user. Heart on a card writes `/api/recipes/favourite`. |
+| **Collections** | Named lists of recipes with order and color. |
+| **Meal planning** | Week grid: breakfast, lunch, dinner, snack. |
+| **Shopping list** | Built from selected recipes; items stored as JSON on `ShoppingList`. |
+| **Notes and ratings** | One note per user per recipe. |
+| **Images / videos** | User uploads (Cloudinary) and YouTube-style URLs. Remote photos use `SafeImage` (Next Image, then native `<img>` on error). |
+| **AI** | Search, recommendations, analysis, modifications, weather queries. Shared client `lib/ai/` tries Groq → Gemini Flash → OpenRouter `:free` → Hugging Face. Missing keys skip that provider. |
+| **Blog** | Contentful via `/api/cms/blog`. Empty state if CMS env is unset. |
+| **Business insights** | Auth dashboard; aggregated SQL + Redis 60s cache (`lib/business-insights.ts`). |
+| **API status / docs** | `/api-status` and `/api-docs` for learners. |
+| **Filter presets** | Save search filters (auth). |
+| **Email share** | Resend or Brevo if configured. |
+| **Realtime** | After CRUD, server publishes an event; SSE `/api/events/stream` invalidates React Query in all open tabs. |
 
 ---
 
-## Technology Stack
+## How the app works
 
-| Layer            | Technology                                                             |
-| ---------------- | ---------------------------------------------------------------------- |
-| **Framework**    | Next.js 15 (App Router, Turbopack optional)                            |
-| **UI**           | React 18, Tailwind CSS, ShadCN UI (Radix), Framer Motion, Lucide icons |
-| **Language**     | TypeScript 5.7                                                         |
-| **Database**     | PostgreSQL (e.g. NeonDB), Prisma ORM                                   |
-| **Auth**         | NextAuth v5 (JWT, Google OAuth, Credentials provider)                  |
-| **Recipe API**   | Spoonacular Food API                                                   |
-| **Caching**      | Upstash Redis (optional)                                               |
-| **CMS**          | Contentful                                                             |
-| **Image Upload** | Cloudinary                                                             |
-| **Monitoring**   | Sentry, PostHog                                                        |
-| **Hosting**      | Vercel                                                                 |
+```text
+Browser (React 18 + TanStack Query)
+    │  GET/POST /api/...
+    ▼
+app/api/[...path]/route.ts     ← one serverless function, path[] routing
+    │
+    ├── Spoonacular (lib/recipe-api.ts)     public recipe data
+    ├── Prisma / PostgreSQL                 user data
+    ├── lib/ai/completeChat()               optional LLM
+    ├── Redis (optional)                    cache + SSE seq
+    └── notifyCrud(domain)
+            → Redis event
+            → SSE to RealtimeProvider
+            → invalidateByAppEvent()
+            → UI refetch (no full page reload)
+```
+
+**Mental model:** Spoonacular owns the *recipes*. Your database owns *the user’s relationship* to those recipes (favourite, collection, meal slot). The catch-all route is a traffic cop: it reads `path` from the URL (`/api/collections/abc` → `["collections", "abc"]`) and runs the matching handler.
 
 ---
 
-## Project Structure
+## Technology stack
+
+| Layer | What we use | Why it is here |
+| ----- | ----------- | -------------- |
+| Framework | Next.js **15.5.9** (App Router) | SSR pages, API routes, deploy on Vercel |
+| UI | React **18.3**, Tailwind **3.4**, daisyUI, Radix/shadcn, Framer Motion, Lucide | Accessible components + motion |
+| Language | TypeScript **5.7** | Types in `src/types.ts` and Prisma |
+| Database | PostgreSQL (Neon or any host) + Prisma **6** | User CRUD; Prisma 7 is not used |
+| Auth | NextAuth v5 (`auth.ts`) | JWT session; Google + Credentials |
+| Recipes | Spoonacular | Search and detail JSON |
+| Client cache | TanStack Query v5 | `staleTime: Infinity` until invalidation |
+| Server cache | Upstash Redis (optional) | Search/recipe/insights TTLs + SSE |
+| AI | Groq, Gemini, OpenRouter `:free`, Hugging Face | See `lib/ai/providers.ts` |
+| Lint / test | ESLint **9** (`eslint.config.mjs`), Vitest | `npm run lint` / `npm run test` |
+| Hosting | Vercel | `next build` on each push to `main` |
+
+This is **not a Vite SPA**. The test runner is **Vitest**. The app runtime is **Next.js**.
+
+---
+
+## Keywords (beginner glossary)
+
+| Keyword | Short meaning in this repo |
+| ------- | -------------------------- |
+| **App Router** | Next.js folders under `app/` are URLs. `app/page.tsx` is `/`. |
+| **Server Component** | Default in `app/`. Can fetch on the server. No `useState`. |
+| **Client Component** | File starts with `"use client"`. Needed for clicks, hooks, dialogs. |
+| **Catch-all route** | `app/api/[...path]/route.ts` handles `/api/anything/here`. |
+| **Prisma** | ORM: TypeScript talks to PostgreSQL using `schema.prisma`. |
+| **NextAuth / Auth.js** | Login library. Session cookie + JWT. |
+| **TanStack Query** | Caches API results in the browser; `invalidateQueries` after mutations. |
+| **SSE** | Server-Sent Events: a one-way stream so other tabs learn about CRUD. |
+| **Zod** | Schema validation on some forms (`@hookform/resolvers` + react-hook-form). |
+| **bcrypt** | One-way password hash. We never store raw passwords. |
+| **DSN** | Sentry project URL (`NEXT_PUBLIC_SENTRY_DSN`). |
+| **staleTime** | How long Query treats data as fresh. Infinity = until we invalidate. |
+
+---
+
+## Project structure
 
 ```text
 recipe-spoonacular/
-├── app/                          # Next.js App Router
-│   ├── api/
-│   │   ├── [...path]/route.ts    # Unified API handler (recipes, collections, meal-plan, etc.)
-│   │   ├── auth/
-│   │   │   ├── [...nextauth]/    # NextAuth v5
-│   │   │   ├── login/            # Credentials login
-│   │   │   ├── signup/           # Credentials signup
-│   │   │   └── signup-nextauth/  # NextAuth signup
-│   │   ├── jobs/scheduled/       # QStash cron
-│   │   └── test/redis/           # Redis test
-│   ├── api-docs/page.tsx         # API documentation UI
-│   ├── api-status/page.tsx      # API status dashboard
-│   ├── blog/
-│   │   ├── page.tsx              # Blog list
-│   │   └── [slug]/page.tsx       # Blog post
-│   ├── business-insights/page.tsx
-│   ├── recipe/[id]/page.tsx      # Recipe detail page
-│   ├── test-sentry/page.tsx      # Sentry test
-│   ├── layout.tsx                # Root layout, metadata, providers
-│   └── page.tsx                  # Home (search + tabs)
+├── app/                            # Next.js App Router (URLs)
+│   ├── page.tsx                    # Home: search + tabs
+│   ├── layout.tsx                  # Root layout + providers
+│   ├── recipe/[id]/page.tsx        # Recipe detail (SSR)
+│   ├── blog/  blog/[slug]/         # Contentful blog
+│   ├── business-insights/          # Auth analytics
+│   ├── api-docs/  api-status/      # Learner dashboards
+│   ├── test-sentry/                # Sentry smoke page
+│   └── api/
+│       ├── [...path]/route.ts      # Almost all REST + SSE
+│       ├── auth/[...nextauth]/     # NextAuth handlers
+│       ├── auth/signup-nextauth/   # Email/password signup
+│       ├── jobs/scheduled/         # QStash cron
+│       └── test/redis/             # Redis probe (not for production)
 ├── src/
-│   ├── components/
-│   │   ├── analysis/             # AI recipe analysis, nutrition, recommendations
-│   │   ├── auth/                 # LoginDialog, RegisterDialog
-│   │   ├── blog/                 # BlogPostCard, BlogPostList, BlogPostDetail
-│   │   ├── collections/          # CollectionManager, CollectionCard, AddToCollectionDialog
-│   │   ├── common/               # EmptyState, ErrorBoundary, ConfirmationDialog
-│   │   ├── filters/              # AdvancedFilters, FilterPresets
-│   │   ├── hero/                 # HeroSearchSection
-│   │   ├── insights/            # BusinessInsightsDashboard
-│   │   ├── layout/               # Navbar, Footer, TabNavigation, AppContent
-│   │   ├── meal-planning/        # MealPlanner
-│   │   ├── pages/                # HomePage, RecipePage, BlogPage, ApiDocsPage, etc.
-│   │   ├── recipes/              # RecipeCard, RecipeDetailCard, RecipeImageGallery, RecipeNotes
-│   │   ├── search/               # SearchInput, SearchResultsMetadata
-│   │   ├── shopping/             # ShoppingListGenerator, ImageUploader
-│   │   ├── skeletons/            # Loading skeletons for each section
-│   │   ├── status/               # ApiStatusDashboard
-│   │   ├── ui/                   # ShadCN primitives (Button, Card, Dialog, Tabs, etc.)
-│   │   ├── videos/               # RecipeVideoPlayer
-│   │   └── weather/              # WeatherBasedSuggestions, WeatherWidget
-│   ├── config/upload-presets/   # Cloudinary upload presets
-│   ├── context/                  # AuthContext, RecipeContext
-│   ├── hooks/                    # useRecipes, useCollections, useMealPlan, useRecipeImages, etc.
-│   ├── lib/                      # posthog, utils
-│   ├── utils/                    # queryInvalidation, recipeScaling, imageUtils, etc.
-│   ├── api.ts                    # Client-side API helpers (getApiUrl, getAuthHeaders, fetch wrappers)
-│   ├── types.ts                  # Shared TypeScript types (Recipe, RecipeImage, TabType, etc.)
-│   └── global.css
-├── lib/                          # Server-side utilities
-│   ├── api-key-tracker.ts        # Spoonacular API key rotation (API_KEY, API_KEY_2, ...)
-│   ├── api-utils-nextjs.ts       # CORS, auth (JWT/session) for API routes
-│   ├── prisma.ts                 # Prisma client singleton
-│   ├── recipe-api.ts             # Spoonacular API calls
-│   ├── redis-cache.ts            # Redis caching helpers
-│   ├── redis.ts                  # Upstash Redis client
-│   └── qstash.ts                 # QStash client for cron
-├── prisma/
-│   └── schema.prisma             # Database schema (User, FavouriteRecipes, RecipeCollection, etc.)
-├── public/                       # Static assets (images, icons)
-├── auth.ts                       # NextAuth v5 config (Google, Credentials)
-├── instrumentation.ts           # Sentry instrumentation
-├── next.config.js                # Next config (images remotePatterns, etc.)
-├── .env.example                  # Example environment variables
-└── README.md                     # This file
+│   ├── components/                 # Feature UI (see folders below)
+│   ├── components/pages/           # Client page shells
+│   ├── components/providers/       # Query, realtime, PostHog
+│   ├── components/ui/              # shadcn primitives + SafeImage
+│   ├── context/                    # AuthContext, RecipeContext
+│   ├── hooks/                      # React Query hooks
+│   ├── utils/                      # queryInvalidation, cacheStorage, …
+│   ├── api.ts                      # Browser fetch helpers
+│   └── types.ts                    # Shared TS types
+├── lib/                            # Server-only (no React)
+│   ├── ai/                         # Free-tier LLM fallback (REQ-0010)
+│   ├── prisma.ts  redis.ts         # Clients
+│   ├── recipe-api.ts               # Spoonacular
+│   ├── business-insights.ts        # Aggregated stats
+│   ├── realtime/                   # SSE publish / stream
+│   └── user-registration.ts        # Signup + cache bust
+├── prisma/schema.prisma
+├── auth.ts                         # NextAuth config
+├── eslint.config.mjs               # ESLint 9
+├── .env.example                    # Copy to .env.local
+└── SECURITY.md
 ```
+
+**Rule of thumb:** UI in `src/`. Database, Redis, Spoonacular, AI in `lib/`. New business APIs go in the catch-all, not a new `app/api/foo/route.ts` (NextAuth is the exception).
 
 ---
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
 - **Node.js** 18 or later
-- **npm** or **pnpm**
-- **PostgreSQL** database (e.g. [NeonDB](https://neon.tech/))
-- **Spoonacular API key** (free tier: [spoonacular.com/food-api](https://spoonacular.com/food-api))
+- **npm**
+- A **PostgreSQL** database (free: [Neon](https://neon.tech/))
+- A **Spoonacular API key** (free: [spoonacular.com/food-api](https://spoonacular.com/food-api))
 
-### Quick Start
+You do **not** need Redis, AI keys, Cloudinary, or Contentful to search recipes and sign up. Those features stay off or show empty/fallback UI until you add keys.
+
+### Quick start
 
 ```bash
-# Clone the repository
-git clone https://github.com/arnobt78/recipe-spoonacular.git
-cd recipe-spoonacular
+git clone https://github.com/arnobt78/Recipe-Guide-Discovery-Management-Platform--NextJS-Spoonacular-FullStack.git
+cd Recipe-Guide-Discovery-Management-Platform--NextJS-Spoonacular-FullStack
 
-# Install dependencies
 npm install
-
-# Copy environment file and fill in required values
 cp .env.example .env.local
+# Edit .env.local — at least DATABASE_URL, API_KEY, AUTH_SECRET, AUTH_URL
 
-# Generate Prisma client
 npm run prisma:generate
-
-# Push schema to database (creates tables)
 npm run prisma:push
-
-# Start development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
+`postinstall` already runs `prisma generate` after `npm install`. `prisma:push` creates tables from `schema.prisma` (this project uses push, not a migration history, for local/dev).
+
 ---
 
-## Environment Variables
+## Environment variables
 
-Create a `.env.local` file in the project root. Use `.env.example` as a template. Next.js loads `.env.local` automatically; never commit it.
+There **is** a template: **[`.env.example`](./.env.example)**. Copy it:
 
-### Required (minimum to run)
-
-```env
-# Spoonacular API (required for recipe search and details)
-API_KEY=your_spoonacular_api_key_here
-
-# Optional: add more keys for rotation (reduces 402 errors on free tier)
-# API_KEY_2=optional_second_key
-# API_KEY_3=optional_third_key
-
-# PostgreSQL connection string (required for auth and user data)
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+```bash
+cp .env.example .env.local
 ```
 
-### Authentication (NextAuth v5)
+Next.js loads `.env.local` automatically. **Never commit** `.env.local` or real secrets.
+
+### Do I need a `.env` file?
+
+| Situation | What you need |
+| --------- | ------------- |
+| Only using the live demo | Nothing. No env on your laptop. |
+| Local search + login + favourites | **Required** four: `DATABASE_URL`, `API_KEY`, `AUTH_SECRET`, `AUTH_URL` |
+| Google login | Plus `GOOGLE_ID` and `GOOGLE_SECRET` |
+| Blog, AI, Redis, uploads, email, weather, analytics | Optional keys below; app degrades if they are empty |
+
+### Required (core local run)
 
 ```env
-# Required for NextAuth
-AUTH_SECRET=your-secret-here
-# Generate: openssl rand -base64 32
-
-# App URL (used for callbacks and links)
+API_KEY=your_spoonacular_api_key
+DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
+AUTH_SECRET=paste_output_of_openssl_rand_base64_32
 AUTH_URL=http://localhost:3000
-# Production: https://your-domain.com
-
-# Google OAuth (optional; without these, only Credentials login works)
-GOOGLE_ID=your-google-client-id
-GOOGLE_SECRET=your-google-client-secret
-# Alternative names also supported: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### Optional services
+Leave `NEXT_PUBLIC_API_URL` empty so the browser calls same-origin `/api/...` (recommended).
+
+### Optional rotation and aliases
 
 ```env
-# Redis (Upstash) – caching
-UPSTASH_REDIS_URL=https://xxx.upstash.io
-UPSTASH_REDIS_TOKEN=your-token
-
-# Contentful – blog
-CMS_SPACE_ID=your-space-id
-CMS_DELIVERY_TOKEN=your-delivery-token
-CMS_ENVIRONMENT=master
-
-# Cloudinary – recipe image uploads
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-
-# AI (at least one for analysis/recommendations/modifications)
-OPENROUTER_API_KEY=your-key
-GOOGLE_GEMINI_API_KEY=your-key
-GROQ_LLAMA_API_KEY=your-key
-HUGGING_FACE_INFERENCE_API_KEY=your-key
-
-# Weather – weather-based recipe suggestions
-OPENWEATHER_API_KEY=your-key
-
-# Email – recipe sharing (Resend or Brevo)
-RESEND_TOKEN=your-token
-BREVO_API_KEY=your-key
-EMAIL_SENDER_ADDRESS=noreply@yourdomain.com
-
-# Sentry – error tracking
-SENTRY_DSN=your-sentry-dsn
-NEXT_PUBLIC_SENTRY_DSN=your-sentry-dsn
-
-# PostHog – analytics
-NEXT_PUBLIC_POSTHOG_KEY=your-key
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
-
-# App URLs (metadata, links in emails)
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:3000
+API_KEY_2=
+API_KEY_3=
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET also work
+GOOGLE_ID=
+GOOGLE_SECRET=
 ```
 
-### How to obtain environment variables
+### Optional AI (any one key is enough)
 
-| Variable                      | How to get it                                                                                                                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `API_KEY`                     | [Spoonacular](https://spoonacular.com/food-api) → Sign up → Dashboard → API Key                                                                                                                        |
-| `DATABASE_URL`                | [Neon](https://neon.tech/) or any PostgreSQL host → Connection string (include `?sslmode=require` for Neon)                                                                                            |
-| `AUTH_SECRET`                 | Run `openssl rand -base64 32` in terminal                                                                                                                                                              |
-| `GOOGLE_ID` / `GOOGLE_SECRET` | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web app), set redirect URI to `http://localhost:3000/api/auth/callback/google` |
-| `UPSTASH_REDIS_*`             | [Upstash](https://upstash.com/) → Create Redis database → Copy URL and token                                                                                                                           |
-| `CMS_*`                       | [Contentful](https://www.contentful.com/) → Space Settings → API keys → Content delivery API token; Environment = master                                                                               |
-| `CLOUDINARY_*`                | [Cloudinary](https://cloudinary.com/) → Dashboard → Account details                                                                                                                                    |
-| `OPENROUTER_API_KEY`          | [OpenRouter](https://openrouter.ai/) → Keys                                                                                                                                                            |
-| `GOOGLE_GEMINI_API_KEY`       | [Google AI Studio](https://aistudio.google.com/) → Get API key                                                                                                                                         |
-| `OPENWEATHER_API_KEY`         | [OpenWeather](https://openweathermap.org/api) → Sign up → API key                                                                                                                                      |
-| `RESEND_TOKEN`                | [Resend](https://resend.com/) → API Keys                                                                                                                                                               |
-| `BREVO_API_KEY`               | [Brevo](https://www.brevo.com/) → SMTP & API → API Keys                                                                                                                                                |
-| `SENTRY_DSN`                  | [Sentry](https://sentry.io/) → Create project → Client keys (DSN)                                                                                                                                      |
-| `NEXT_PUBLIC_POSTHOG_*`       | [PostHog](https://posthog.com/) → Project Settings → Project API key and host                                                                                                                          |
+Fallback order is **Groq → Gemini → OpenRouter `:free` → Hugging Face**. Model IDs live in `lib/ai/providers.ts`, not in each route.
+
+```env
+GROQ_LLAMA_API_KEY=
+GOOGLE_GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+HUGGING_FACE_INFERENCE_API_KEY=
+```
+
+Aliases: `GROQ_API_KEY`, `HF_TOKEN`. OpenRouter IDs must stay `:free` (or `openrouter/free`).
+
+### Other optional services
+
+```env
+UPSTASH_REDIS_URL=
+UPSTASH_REDIS_TOKEN=
+CMS_SPACE_ID=
+CMS_DELIVERY_TOKEN=
+CMS_ENVIRONMENT=master
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+OPENWEATHER_API_KEY=
+RESEND_TOKEN=
+BREVO_API_KEY=
+EMAIL_SENDER_ADDRESS=you@example.com
+NEXT_PUBLIC_SENTRY_DSN=
+NEXT_PUBLIC_POSTHOG_KEY=
+NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
+QSTASH_TOKEN=
+```
+
+### How to get each key
+
+| Variable | Where to create it |
+| -------- | ------------------ |
+| `API_KEY` | [Spoonacular](https://spoonacular.com/food-api) → dashboard → API key |
+| `DATABASE_URL` | [Neon](https://neon.tech/) → connection string; add `?sslmode=require` |
+| `AUTH_SECRET` | Terminal: `openssl rand -base64 32` |
+| `GOOGLE_ID` / `GOOGLE_SECRET` | [Google Cloud Console](https://console.cloud.google.com/) → Credentials → OAuth 2.0 Web client. Redirect: `http://localhost:3000/api/auth/callback/google` (production: `https://your-domain/api/auth/callback/google`) |
+| `UPSTASH_REDIS_*` | [Upstash](https://upstash.com/) → Redis → URL + token |
+| `CMS_*` | [Contentful](https://www.contentful.com/) → Space → API keys (CDA) |
+| `CLOUDINARY_*` | [Cloudinary](https://cloudinary.com/) dashboard |
+| `GROQ_LLAMA_API_KEY` | [Groq Console](https://console.groq.com/) |
+| `GOOGLE_GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) |
+| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai/) keys |
+| `HUGGING_FACE_INFERENCE_API_KEY` | [Hugging Face](https://huggingface.co/settings/tokens) |
+| `OPENWEATHER_API_KEY` | [OpenWeather](https://openweathermap.org/api) |
+| `RESEND_TOKEN` / `BREVO_API_KEY` | [Resend](https://resend.com/) or [Brevo](https://www.brevo.com/) |
+| `NEXT_PUBLIC_SENTRY_DSN` | [Sentry](https://sentry.io/) → project DSN |
+| `NEXT_PUBLIC_POSTHOG_*` | [PostHog](https://posthog.com/) project API key |
+
+On **Vercel**: Project → Settings → Environment Variables. Use the **same names** as `.env.example` (including `GROQ_LLAMA_API_KEY`).
 
 ---
 
-## How to Run
+## How to run
 
-| Command                   | Description                                             |
-| ------------------------- | ------------------------------------------------------- |
-| `npm run dev`             | Start dev server (Turbopack) at `http://localhost:3000` |
-| `npm run dev:webpack`     | Start dev server with Webpack                           |
-| `npm run build`           | Production build                                        |
-| `npm run start`           | Run production server                                   |
-| `npm run lint`            | Run ESLint                                              |
-| `npm run prisma:generate` | Generate Prisma client                                  |
-| `npm run prisma:push`     | Push Prisma schema to database (no migrations)          |
-| `npm run prisma:studio`   | Open Prisma Studio (DB GUI)                             |
+| Command | Description |
+| ------- | ----------- |
+| `npm run dev` | Dev server with Turbopack → http://localhost:3000 |
+| `npm run dev:webpack` | Dev server with Webpack |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint 9 via `next lint` |
+| `npm run test` | Vitest (`lib/__tests__/`) |
+| `npm run prisma:generate` | Generate Prisma Client |
+| `npm run prisma:push` | Sync schema to the database |
+| `npm run prisma:studio` | Visual DB browser |
 
 ---
 
-## Project Walkthrough
+## Project walkthrough
 
-### 1. Home page (`/`)
+### 1. Home (`/`)
 
-- **Hero**: Search bar and optional advanced filters (cuisine, diet, type, etc.).
-- **Tabs**: Recipe Search (default), Favourites, Collections, Meal Plan, Shopping List (auth-only tabs appear when logged in).
-- **Search**: Requests go to `/api/recipes/search` (Spoonacular). Results show as cards with image, title, badges (vegan, gluten-free, etc.), scores, and favourite button.
-- **URL**: Tab state is synced to query param `?tab=favourites` (etc.); `?tab=search` is omitted for a clean `/`.
+`app/page.tsx` renders a client shell (`HomePage` / `AppContent`). The hero search bar (`SearchInput`) hits autocomplete + search. Tabs: Search (default), Favourites, Collections, Meal Plan, Shopping List. Tab query `?tab=favourites` is optional; search stays a clean `/`.
 
 ### 2. Recipe detail (`/recipe/[id]`)
 
-- **Data**: Fetched via `/api/recipes/[id]/information` (and related endpoints). Rendered by `RecipePage` and `RecipeDetailCard`.
-- **Tabs**: Details (instructions, ingredients), Summary, Info (meta), Nutrition, Taste.
-- **Actions**: Add to favourites, add to collection, add to meal plan, add to shopping list, share by email.
-- **User content** (when authenticated): Notes, recipe images (upload via Cloudinary), recipe videos.
+Server page loads Spoonacular information, then `RecipePage` (client) shows tabs (details, nutrition, taste), similar recipes, AI analysis if keys exist, and auth actions (favourite, collection, meal plan, notes, images, videos, email share).
 
 ### 3. Blog (`/blog`, `/blog/[slug]`)
 
-- **List**: From Contentful via `/api/cms/blog`. Each post links to `/blog/[slug]`.
-- **Post**: Fetched via `/api/cms/blog/[slug]`. Rendered with `BlogPostDetail`.
+`/api/cms/blog` reads Contentful. Without `CMS_*` you still get the page, usually empty.
 
 ### 4. Business insights (`/business-insights`)
 
-- **Auth**: Required. Shows platform stats, popular recipes, AI-related metrics. Data from `/api/business-insights`.
+Requires login. `lib/business-insights.ts` runs consolidated counts (not N+1 loops). Redis key `business:insights` TTL 60s. `?probe=1` is a cheap health check.
 
-### 5. API status (`/api-status`)
+### 5. API status and docs (`/api-status`, `/api-docs`)
 
-- **Dashboard**: Status of main API endpoints; auto-refresh (e.g. every 10 seconds).
+Status polls `/api/status`. Docs list catch-all paths for humans.
 
-### 6. API docs (`/api-docs`)
+### 6. After you click “save”
 
-- **Reference**: Endpoints grouped by category (recipes, collections, meal-plan, etc.) with method, path, and parameters.
+Example: favourite a recipe.
+
+1. Hook `useIsFavourite` → `POST /api/recipes/favourite`
+2. Route checks `requireAuth()`, writes Prisma, then `notifyCrud("favourites")`
+3. Redis sequence bumps; SSE clients refetch favourites + insights
+4. Heart state updates immediately; back-navigation still shows fresh Query cache
 
 ---
 
-## API Endpoints
+## API endpoints
 
-The app uses a **unified API handler** at `app/api/[...path]/route.ts`. The path array is derived from the URL: e.g. `/api/recipes/search` → `path = ["recipes", "search"]`. GET, POST, PUT, DELETE are handled in the same file.
+Almost everything is **`app/api/[...path]/route.ts`**. Example: `/api/recipes/search` → `path = ["recipes", "search"]`.
 
-### Recipes & search
+Protected routes call `requireAuth()` in `lib/api-utils-nextjs.ts`. The browser uses `src/api.ts` (`getApiUrl`, session cookies).
 
-| Method          | Path                        | Description                                                             |
-| --------------- | --------------------------- | ----------------------------------------------------------------------- |
-| GET             | `/api/recipes/search`       | Search recipes (query: searchTerm, page, filters). Proxies Spoonacular. |
-| GET             | `/api/recipes/autocomplete` | Autocomplete suggestions.                                               |
-| GET             | `/api/recipes/favourite`    | Current user's favourites (auth).                                       |
-| POST            | `/api/recipes/favourite`    | Add favourite (auth).                                                   |
-| DELETE          | `/api/recipes/favourite`    | Remove favourite (auth).                                                |
-| GET             | `/api/recipes/images`       | Recipe images for a recipe (auth). Query: `recipeId`.                   |
-| POST            | `/api/recipes/images`       | Add recipe image (auth). Body: recipeId, imageUrl, imageType.           |
-| DELETE          | `/api/recipes/images`       | Delete recipe image (auth).                                             |
-| GET             | `/api/recipes/notes`        | Recipe note (auth). Query: `recipeId`.                                  |
-| POST/PUT/DELETE | `/api/recipes/notes`        | Create/update/delete note (auth).                                       |
-| GET             | `/api/recipes/videos`       | Recipe videos (auth). Query: `recipeId`.                                |
-| POST            | `/api/recipes/videos`       | Add video (auth).                                                       |
-| DELETE          | `/api/recipes/videos`       | Delete video (auth).                                                    |
+### Recipes
 
-Spoonacular-backed proxy routes (e.g. recipe information, summary, similar) are typically called from the server-side recipe page or via the same handler with path like `recipes/[id]/information` (implementation may use internal fetch to Spoonacular).
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| GET | `/api/recipes/search` | Query: `searchTerm`, `page`, filters |
+| GET | `/api/recipes/autocomplete` | Typeahead |
+| GET | `/api/recipes/[id]/information` | Full recipe |
+| GET | `/api/recipes/[id]/summary` | HTML summary |
+| GET | `/api/recipes/[id]/similar` | Similar recipes |
+| GET/POST/DELETE | `/api/recipes/favourite` | Auth |
+| GET/POST/DELETE | `/api/recipes/images` | Auth; query `recipeId` |
+| GET/POST/PUT/DELETE | `/api/recipes/notes` | Auth |
+| GET/POST/DELETE | `/api/recipes/videos` | Auth |
 
 ### AI
 
-| Method | Path                      | Description             |
-| ------ | ------------------------- | ----------------------- |
-| POST   | `/api/ai/search`          | AI-powered search.      |
-| POST   | `/api/ai/recommendations` | Recipe recommendations. |
-| POST   | `/api/ai/analysis`        | Recipe analysis.        |
-| POST   | `/api/ai/modifications`   | Recipe modifications.   |
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| POST | `/api/ai/search` | Natural-language search |
+| POST | `/api/ai/recommendations` | Suggestions |
+| POST | `/api/ai/analysis` | Nutrition / allergens style analysis |
+| POST | `/api/ai/modifications` | Dietary conversion, simplify |
 
-Require at least one of: `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KEY`, `HUGGING_FACE_INFERENCE_API_KEY`.
+All of these call `completeChat()` in `lib/ai/`. If no AI keys are set, the route should fail gracefully rather than crash the rest of the app.
 
-### Collections
+### Collections, meal plan, shopping, filters
 
-| Method | Path                          | Description               |
-| ------ | ----------------------------- | ------------------------- |
-| GET    | `/api/collections`            | List collections (auth).  |
-| GET    | `/api/collections/[id]`       | Get collection (auth).    |
-| GET    | `/api/collections/[id]/items` | Collection items (auth).  |
-| POST   | `/api/collections`            | Create collection (auth). |
-| POST   | `/api/collections/[id]/items` | Add item (auth).          |
-| PUT    | `/api/collections/[id]`       | Update collection (auth). |
-| DELETE | `/api/collections/[id]`       | Delete collection (auth). |
-| DELETE | `/api/collections/[id]/items` | Remove item (auth).       |
+| Method | Path |
+| ------ | ---- |
+| GET/POST | `/api/collections` |
+| GET/PUT/DELETE | `/api/collections/[id]` |
+| GET/POST/DELETE | `/api/collections/[id]/items` |
+| GET | `/api/collections/[id]/recipes` |
+| GET/POST/DELETE | `/api/meal-plan` |
+| GET/POST/PUT/DELETE | `/api/shopping-list` |
+| GET/POST/PUT/DELETE | `/api/filters/presets` |
 
-### Meal plan & shopping
+### Platform
 
-| Method | Path                 | Description                                  |
-| ------ | -------------------- | -------------------------------------------- |
-| GET    | `/api/meal-plan`     | Get meal plan (auth). Query: e.g. weekStart. |
-| POST   | `/api/meal-plan`     | Add/update meal plan (auth).                 |
-| DELETE | `/api/meal-plan`     | Clear meal plan (auth).                      |
-| GET    | `/api/shopping-list` | Get shopping list (auth).                    |
-| POST   | `/api/shopping-list` | Create/update list (auth).                   |
-| PUT    | `/api/shopping-list` | Update list (auth).                          |
-| DELETE | `/api/shopping-list` | Delete list (auth).                          |
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| GET | `/api/events/stream` | SSE realtime |
+| GET | `/api/status` | Health |
+| GET | `/api/cms/blog` | Contentful list |
+| GET | `/api/cms/blog/[slug]` | One post |
+| GET | `/api/business-insights` | Auth stats |
+| GET | `/api/food/wine/dishes` | Spoonacular |
+| GET | `/api/food/wine/pairing` | Spoonacular |
+| POST | `/api/upload` | Cloudinary |
+| GET/POST | `/api/weather/suggestions` | OpenWeather + AI query gen |
+| POST | `/api/email/share` | Resend/Brevo |
 
-### Food & wine (Spoonacular)
+### Auth (separate files, not the catch-all)
 
-| Method | Path                     | Description              |
-| ------ | ------------------------ | ------------------------ |
-| GET    | `/api/food/wine/dishes`  | Dishes for a wine.       |
-| GET    | `/api/food/wine/pairing` | Wine pairing for a dish. |
-
-### CMS & platform
-
-| Method | Path                     | Description                    |
-| ------ | ------------------------ | ------------------------------ |
-| GET    | `/api/cms/blog`          | List blog posts (Contentful).  |
-| GET    | `/api/cms/blog/[slug]`   | Single blog post (Contentful). |
-| GET    | `/api/business-insights` | Platform statistics (auth).    |
-| GET    | `/api/status`            | API health status.             |
-
-### Other
-
-| Method              | Path                       | Description                                     |
-| ------------------- | -------------------------- | ----------------------------------------------- |
-| POST                | `/api/upload`              | Image upload to Cloudinary.                     |
-| POST                | `/api/weather/suggestions` | Weather-based recipe suggestions (OpenWeather). |
-| POST                | `/api/email/share`         | Share recipe by email (Resend/Brevo).           |
-| GET/POST/PUT/DELETE | `/api/filters/presets`     | Filter presets (auth).                          |
-
-Auth is enforced via session/JWT in `lib/api-utils-nextjs.ts` (e.g. `requireAuth(request)`). Client-side calls use `src/api.ts` (getApiUrl, getAuthHeaders) so the same routes are hit with credentials.
+| Path | Role |
+| ---- | ---- |
+| `/api/auth/[...nextauth]` | NextAuth (login, callback, session, signout) |
+| `/api/auth/signup-nextauth` | Create Credentials user (`lib/user-registration.ts`) |
 
 ---
 
-## Routes
+## Pages and routes
 
-| Route                | Type    | Description                                                                      |
-| -------------------- | ------- | -------------------------------------------------------------------------------- |
-| `/`                  | Static  | Home: search + tabbed UI (search, favourites, collections, meal plan, shopping). |
-| `/recipe/[id]`       | Dynamic | Recipe detail page.                                                              |
-| `/blog`              | Static  | Blog list (Contentful).                                                          |
-| `/blog/[slug]`       | Dynamic | Single blog post.                                                                |
-| `/business-insights` | Static  | Analytics dashboard (auth).                                                      |
-| `/api-status`        | Static  | API status dashboard.                                                            |
-| `/api-docs`          | Static  | API documentation.                                                               |
-| `/test-sentry`       | Static  | Sentry test page.                                                                |
-
----
-
-## Database Schema
-
-Key Prisma models (see `prisma/schema.prisma`):
-
-| Model                | Purpose                                                                                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **User**             | Auth user (id, email, name, picture, optional password). Relations: favourites, collections, notes, mealPlans, shoppingLists, recipeImages, filterPresets, recipeVideos. |
-| **FavouriteRecipes** | User favourites (userId, recipeId). Unique per user+recipe.                                                                                                              |
-| **RecipeCollection** | User-created collection (name, description, color).                                                                                                                      |
-| **CollectionItem**   | Item in a collection (recipeId, recipeTitle, recipeImage, order).                                                                                                        |
-| **RecipeNote**       | User note per recipe (content, rating, tags).                                                                                                                            |
-| **MealPlan**         | Weekly plan (weekStart).                                                                                                                                                 |
-| **MealPlanItem**     | Meal slot (recipeId, dayOfWeek, mealType, servings).                                                                                                                     |
-| **ShoppingList**     | List (name, recipeIds, items JSON).                                                                                                                                      |
-| **RecipeImage**      | User-uploaded image (imageUrl, imageType, caption).                                                                                                                      |
-| **FilterPreset**     | Saved search filters (name, filters JSON).                                                                                                                               |
-| **RecipeVideo**      | User-added video (e.g. YouTube URL).                                                                                                                                     |
-
-All user-scoped tables use `userId` and cascade on user delete.
+| Route | Rendering | Description |
+| ----- | --------- | ----------- |
+| `/` | Dynamic | Search + tabs |
+| `/recipe/[id]` | Dynamic | Recipe detail |
+| `/blog` | Dynamic | Post list |
+| `/blog/[slug]` | Dynamic | Post |
+| `/business-insights` | Dynamic | Auth dashboard |
+| `/api-status` | Dynamic | Endpoint health |
+| `/api-docs` | Dynamic | Human API reference |
+| `/test-sentry` | Static | Error-tracking check |
+| `/robots.txt` | Static | From `app/robots.ts` |
 
 ---
 
-## Components & Reusability
+## Authentication
 
-Components are structured so they can be reused in this app or copied into others. They rely on `src/types.ts`, `src/api.ts`, and optionally context/hooks.
+Configured in **`auth.ts`** (NextAuth v5):
 
-### Using a single component
+1. **Credentials** — email + password. Lookup in Prisma; `bcrypt.compare` against `User.password`.
+2. **Google** — `GOOGLE_ID` / `GOOGLE_SECRET`. On first login, `createLocalUser` upserts the user.
 
-**RecipeCard** – display a recipe with image, title, badges, favourite button:
+Signup UI (`RegisterDialog`) posts to `/api/auth/signup-nextauth`. Login UI (`LoginDialog`) uses `signIn("credentials")` or `signIn("google")`.
+
+`AuthContext` exposes `user`, `login`, `logout` to the Navbar and tabs. Session is a JWT; API routes read it with `auth()` / `requireAuth()`.
+
+---
+
+## Caching and realtime updates
+
+Three layers:
+
+1. **Redis** (if Upstash is set) — search ~30m, recipe ~24h, insights 60s
+2. **TanStack Query** — in-memory; default `staleTime: Infinity` until invalidation
+3. **sessionStorage / localStorage** — search results survive a refresh in the same browser
+
+On successful mutation the catch-all runs:
+
+```ts
+await notifyCrud("favourites"); // domain: collections | mealPlan | …
+```
+
+That publishes Redis `app:events:seq` and busts insights. `RealtimeProvider` listens on `GET /api/events/stream` and calls `invalidateByAppEvent()` in `src/utils/queryInvalidation.ts`. Other tabs and the back button then show updated data without a manual refresh.
+
+Without Redis, in-tab invalidation still runs from the mutation hooks; cross-tab SSE is weaker.
+
+---
+
+## AI fallback client
+
+`lib/ai/` is a small OpenAI-compatible stack:
+
+| File | Job |
+| ---- | --- |
+| `providers.ts` | Ordered registry + env key names |
+| `client.ts` | `POST {baseUrl}/chat/completions`, 12s timeout, never throws |
+| `index.ts` | `completeChat()` walks providers/models |
+| `parse-json.ts` | Pull JSON out of LLM text |
+
+Tests: `lib/__tests__/ai-fallback.test.ts` (TC-0024). More detail: [`docs/LLM_MODEL_SELECTION.md`](./docs/LLM_MODEL_SELECTION.md).
+
+---
+
+## Database schema
+
+Defined in `prisma/schema.prisma`. Recipe *content* is not copied into Postgres; we store Spoonacular `recipeId` plus user metadata.
+
+| Model | Purpose |
+| ----- | ------- |
+| `User` | `id`, `email`, `name`, `picture`, optional hashed `password` |
+| `FavouriteRecipes` | Unique `(recipeId, userId)` |
+| `RecipeCollection` / `CollectionItem` | Named lists + order |
+| `RecipeNote` | Content, rating, tags |
+| `MealPlan` / `MealPlanItem` | Week + meal type |
+| `ShoppingList` | Name, recipe ids, items JSON |
+| `RecipeImage` | Cloudinary URL + type |
+| `RecipeVideo` | External URL |
+| `FilterPreset` | Saved filters JSON |
+
+User delete **cascades** to related rows.
+
+---
+
+## Components and reusability
+
+Copy a folder under `src/components/` plus `src/types.ts` / `src/api.ts` if you reuse UI elsewhere. Keep Tailwind + the same `cn()` helper (`clsx` + `tailwind-merge`).
+
+### RecipeCard
 
 ```tsx
 import RecipeCard from "@/components/recipes/RecipeCard";
 
 <RecipeCard
   recipe={recipe}
-  onFavouriteButtonClick={() => {}}
   isFavourite={false}
-  onRecipeClick={(id) => router.push(`/recipe/${id}`)}
-/>;
+  onFavouriteButtonClick={(r) => toggleFavourite(r)}
+/>
 ```
 
-**SearchInput** – search bar with optional autocomplete:
+Default click navigates to `/recipe/[id]`. Pass `onClick` to override.
+
+### SearchInput
 
 ```tsx
 import SearchInput from "@/components/search/SearchInput";
 
 <SearchInput
-  value={searchTerm}
-  onChange={setSearchTerm}
-  onSubmit={(term) => doSearch(term)}
+  value={term}
+  onChange={setTerm}
+  onSubmit={(e) => {
+    e.preventDefault();
+    runSearch(term);
+  }}
   placeholder="Search recipes..."
-/>;
+/>
 ```
 
-**EmptyState** – empty list message:
+Autocomplete uses `useAutocompleteRecipes` (debounced).
+
+### EmptyState
 
 ```tsx
 import EmptyState from "@/components/common/EmptyState";
 
-<EmptyState
-  message="No recipes yet"
-  subtitle="Try searching or add from favourites."
-/>;
+<EmptyState message="No recipes yet" subtitle="Try another search." />
 ```
 
-### Architecture
+### SafeImage
 
-- **Pages** (`src/components/pages/`): Full-page client components (HomePage, RecipePage, BlogPage, ApiDocsPage, BusinessInsightsPage, ApiStatusPage).
-- **Feature components** (`src/components/recipes/`, `collections/`, `meal-planning/`, etc.): Feature-specific UI; often use hooks from `src/hooks/`.
-- **UI** (`src/components/ui/`): ShadCN primitives (Button, Card, Dialog, Tabs, Input, etc.). Reusable in any project that uses Tailwind + Radix.
-- **Skeletons** (`src/components/skeletons/`): Loading placeholders aligned with main components.
+Use for any remote URL (Spoonacular, Cloudinary, Google avatars). Do not use raw `<img>` for those hosts — `next.config.js` `images.remotePatterns` allowlists domains.
+
+```tsx
+import { SafeImage } from "@/components/ui/safe-image";
+
+<SafeImage src={url} alt={title} width={400} height={300} />
+```
+
+### Folder map
+
+| Folder | Role |
+| ------ | ---- |
+| `components/ui/` | Button, Card, Dialog, Tabs — portable shadcn |
+| `components/recipes/` | Cards, gallery, notes, share |
+| `components/auth/` | Login / register dialogs |
+| `components/layout/` | Navbar, Footer, tabs |
+| `components/skeletons/` | Loading placeholders |
+| `components/pages/` | Full client pages wired to hooks |
 
 ---
 
-## Hooks & Data Fetching
+## Hooks and data fetching
 
-Data fetching uses **TanStack Query (React Query)** with hooks in `src/hooks/`. The client calls `src/api.ts`, which uses `NEXT_PUBLIC_API_URL` and auth headers (session/JWT).
-
-**Example: search and favourites**
+Hooks live in `src/hooks/` and wrap TanStack Query + `src/api.ts`.
 
 ```tsx
 import { useSearchRecipes } from "@/hooks/useRecipes";
 import { useIsFavourite } from "@/hooks/useIsFavourite";
-
-const { data, isLoading, searchRecipes } = useSearchRecipes();
-const { isFavourite, toggleFavourite } = useIsFavourite(recipeId);
-
-// Search
-searchRecipes("pasta", 1, { cuisine: "Italian" });
-
-// Favourite
-await toggleFavourite();
-```
-
-**Example: collections**
-
-```tsx
-import { useCollections, useCollectionDetail } from "@/hooks/useCollections";
-
-const { collections, createCollection, isLoading } = useCollections();
-const { collection, items } = useCollectionDetail(collectionId);
-```
-
-**Example: meal plan and shopping list**
-
-```tsx
+import { useCollections } from "@/hooks/useCollections";
 import { useMealPlan } from "@/hooks/useMealPlan";
 import { useShoppingList } from "@/hooks/useShoppingList";
 
-const { mealPlan, addToMealPlan, removeFromMealPlan } = useMealPlan();
-const { shoppingList, addRecipes, clearList } = useShoppingList();
+const { searchRecipes, data, isLoading } = useSearchRecipes();
+searchRecipes("pasta", 1, { cuisine: "Italian" });
+
+const { isFavourite, toggleFavourite } = useIsFavourite(recipeId);
+const { collections, createCollection } = useCollections();
+const { addToMealPlan } = useMealPlan();
+const { shoppingList } = useShoppingList();
 ```
 
-**Example: recipe images and notes**
+Auth-gated hooks use `useAuthCheck()` so they disable when logged out. After logout, related caches are cleared.
 
-```tsx
-import { useRecipeImages, useAddRecipeImage } from "@/hooks/useRecipeImages";
-import { useRecipeNotes } from "@/hooks/useRecipeNotes";
+To reuse in another Next app: copy the hook, `src/api.ts` helpers, and the matching catch-all branch (or a dedicated route with the same JSON shape).
 
-const { data: images } = useRecipeImages(recipeId, true);
-const addImage = useAddRecipeImage();
-const { note, saveNote } = useRecipeNotes(recipeId);
+---
+
+## Libraries and dependencies
+
+| Package | What it does here |
+| ------- | ----------------- |
+| `next` / `react` / `react-dom` | App framework and UI |
+| `next-auth` | Login session |
+| `@prisma/client` / `prisma` | Database |
+| `@tanstack/react-query` | Client cache and mutations |
+| `@upstash/redis` | Optional server cache + SSE seq |
+| `bcryptjs` | Password hashing |
+| `zod` + `react-hook-form` | Form validation |
+| `cloudinary` | Image upload API |
+| `@sentry/nextjs` | Errors (v10.x) |
+| `posthog-js` | Product analytics |
+| `framer-motion` | Animations |
+| `lucide-react` / `react-icons` | Icons |
+| `sonner` | Toasts |
+| `vitest` | Unit tests |
+| `eslint` 9 + `eslint-config-next` 15.5.9 | Lint |
+
+Install the same majors if you extract a feature. Do not jump to Next 16 or Prisma 7 without a dedicated upgrade; this repo is pinned to Next 15.5.9 and Prisma 6.
+
+---
+
+## Testing and quality
+
+```bash
+npm run test    # Vitest — business-insights, realtime, AI fallback
+npm run lint    # ESLint 9
+npm run build   # next build
 ```
 
-All auth-protected hooks depend on `useAuthCheck()` or session; when the user logs out, cache is cleared and these queries are disabled or refetched as needed.
+Automated cases include TC-0020 (insights query count), TC-0021 (realtime payload), TC-0024 (AI fallback), TC-0025 (tooling/lint/build). There is no full E2E suite yet.
+
+---
+
+## Reusing this project
+
+| You want | Copy / follow |
+| -------- | ------------- |
+| Tabbed recipe search UI | `src/components/search`, `recipes`, `hooks/useRecipes.ts` |
+| Auth + user tables | `auth.ts`, `lib/user-registration.ts`, Prisma `User` |
+| One Vercel function for many APIs | Catch-all `path[]` pattern |
+| CRUD that updates every tab | `notifyCrud` + `RealtimeProvider` + `queryInvalidation.ts` |
+| Free LLM calls | `lib/ai/` as a drop-in |
+| Remote images that survive optimizer 402s | `SafeImage` |
+
+Keep env names, `requireAuth()` on writes, and never commit `.env.local`.
 
 ---
 
 ## Keywords
 
-`recipe app`, `Next.js`, `React`, `TypeScript`, `Spoonacular API`, `PostgreSQL`, `Prisma`, `NextAuth`, `full-stack`, `meal planning`, `shopping list`, `recipe collections`, `favourites`, `AI recipe`, `Contentful`, `Cloudinary`, `Tailwind CSS`, `ShadCN`, `Vercel`, `Redis`, `Sentry`, `recipe search`, `recipe management`, `educational project`
+`recipe app`, `Next.js 15`, `App Router`, `React 18`, `TypeScript`, `Spoonacular API`, `PostgreSQL`, `Prisma`, `NextAuth v5`, `TanStack Query`, `Redis`, `SSE`, `full-stack`, `meal planning`, `shopping list`, `collections`, `favourites`, `AI fallback`, `Groq`, `Gemini`, `OpenRouter`, `Hugging Face`, `Contentful`, `Cloudinary`, `Tailwind`, `shadcn`, `Vitest`, `ESLint 9`, `Vercel`, `educational project`
 
 ---
 
 ## Conclusion
 
-Recipe Guide is a full-featured recipe platform that demonstrates:
+Recipe Guide is a complete Next.js 15 recipe platform you can run, fork, and teach from:
 
-- **Next.js 15** App Router with server and client components and a unified API route handler.
-- **Prisma + PostgreSQL** for user data, favourites, collections, meal plans, shopping lists, notes, images, and videos.
-- **NextAuth v5** for Google OAuth and Credentials (email/password) with session/JWT.
-- **Spoonacular API** for recipe data, with optional multi-key rotation.
-- **ShadCN UI + Tailwind** for a consistent, accessible UI.
-- **React Query** for client-side caching and auth-aware data fetching.
-- Optional integrations (Contentful, Cloudinary, Redis, AI, weather, email, Sentry, PostHog) for blog, uploads, caching, AI features, and monitoring.
+- App Router + a **single catch-all API** for Hobby-plan limits
+- **Prisma + PostgreSQL** for user data; Spoonacular for recipe content
+- **NextAuth v5** (Google + Credentials, bcrypt)
+- **React Query + SSE** so CRUD shows up immediately without a refresh
+- Optional **AI**, blog, Redis, uploads, and monitoring — off until you add keys
 
-You can use it as a reference for building similar apps, as a base to extend with new features, or as teaching material for full-stack Next.js and TypeScript.
+Use it as a learning map, a starter, or a reference for catch-all routing, cache invalidation, and free-tier LLM fallback.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). Feel free to use, modify, and distribute the code as per the terms of the license.
+
+---
+
+## Security
+
+Private vulnerability reports: **[SECURITY.md](./SECURITY.md)** → [contact@arnobmahmud.com](mailto:contact@arnobmahmud.com). Please do not file public issues for security bugs.
 
 ---
 
@@ -628,10 +727,8 @@ You can use it as a reference for building similar apps, as a base to extend wit
 
 This is an **open-source project** - feel free to use, enhance, and extend this project further!
 
-If you have any questions or want to share your work, reach out via GitHub or my portfolio at [https://www.arnobmahmud.com/](https://www.arnobmahmud.com/).
+If you have any questions or want to share your work, reach out via GitHub or my portfolio at [https://www.arnobmahmud.com](https://www.arnobmahmud.com/)
 
 **Enjoy building and learning!** 🚀
 
 Thank you! 😊
-
----
