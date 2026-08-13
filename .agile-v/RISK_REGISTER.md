@@ -6,5 +6,5 @@
 | RISK-0002 | C1 | Security | Bot crawl burns Edge/CPU/image transforms on Vercel free tier | High | High | High | REQ-0017 code guardrails + enable Vercel Bot Protection + AI Bots | Human | mitigating |
 | RISK-0003 | C1 | Technical | Spoonacular API daily limit (402) on free keys | Medium | High | High | API key rotation in `lib/api-key-tracker.ts` | ops | mitigating |
 | RISK-0004 | C1 | Process | No automated E2E suite — regression partly manual | Medium | Medium | Medium | Vitest TC-0020/0021; consider Playwright in C2 | test-designer | mitigating |
-| RISK-0005 | C1 | Security | Authenticated GET `/api/debug/auth-info` returns all users (id, email, name) | High | High | High | Remove route or drop directory listing; Gate 1 Option B (REQ-0024) | Human | open |
-| RISK-0006 | C1 | Security | `/api/test/redis` is an ungated Redis probe; file says do not use in production | Medium | High | High | Delete or env-gate the route (REQ-0024 if Option B) | Human | open |
+| RISK-0005 | C1 | Security | Authenticated GET `/api/debug/auth-info` returns all users (id, email, name) | High | High | High | Deferred — not REQ-0024 (that ID is tooling CR-0003). Needs a new gated REQ. | Human | open |
+| RISK-0006 | C1 | Security | `/api/test/redis` is an ungated Redis probe; file says do not use in production | Medium | High | High | Deferred — not REQ-0024 (tooling). Needs a new gated REQ. | Human | open |

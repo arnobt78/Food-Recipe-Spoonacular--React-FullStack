@@ -8,7 +8,9 @@
 
 **Tech Stack:** Next.js 15.5.9, React 18, TypeScript, Prisma 6 + PostgreSQL, NextAuth v5, TanStack Query, Upstash Redis, Vitest, Vercel.
 
-**Spec:** `.agile-v/REQUIREMENTS.md` (REQ-0001…0023). Protocol: `docs/AGILE_V_PROTOCOL.md`.
+**Spec:** `.agile-v/REQUIREMENTS.md` (REQ-0001…0024). Protocol: `docs/AGILE_V_PROTOCOL.md`.
+
+**Superseded 2026-08-13:** GATE-0001 chose AI-only (REQ-0010 / CR-0002). GATE-0002 assigned **REQ-0024** to tooling hygiene (ESLint 9 / Sentry 10.x / browserslist), not Option B security. RISK-0005/0006 remain deferred.
 
 **This session's request:** Protocol §15 resume/plan only. **No new product feature was specified.** Do not invent C2 product REQs.
 
