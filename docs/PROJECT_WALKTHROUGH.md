@@ -57,15 +57,20 @@ AI (REQ-0010): `OPENROUTER_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GROQ_LLAMA_API_KE
 
 `lib/ai/` — Groq (`gpt-oss` / `qwen3.6`) → Gemini `2.5-flash` → OpenRouter `:free` → HF router. Catch-all `/api/ai/*` + weather-AI call `completeChat()`. No paid/Llama IDs.
 
-## Audit (2026-08-13)
+## Vercel (REQ-0025 / CR-0004)
+
+- `vercel.json` — headers only (REQ-0017). No `buildCommand` / `outputDirectory` / `installCommand` / `devCommand` / `framework` (library-style Next.js auto-detect).
+- `package.json` `"engines": { "node": "24.x" }` — Vercel Node 20 EOL 2026-10-01.
+- Dashboard: Node 24.x; Build/Output overrides off. TC-0026: `lib/__tests__/vercel-defaults.test.ts`.
+
+## Audit (2026-08-19)
 
 | Check | Status |
 |-------|--------|
-| test (12/12) + lint + build | pass |
+| test (15/15) + lint + build | pass (Node v24.16.0) |
+| REQ-0025 Vercel defaults + Node 24.x | pass (TC-0026); dashboard overrides cleared |
 | REQ-0010 free-tier AI client | pass (TC-0024) |
 | REQ-0024 tooling hygiene | pass (TC-0025; ESLint 9, Sentry 10.70, caniuse-lite) |
 | Auth0 removed | pass |
 | notifyCrud + client invalidation | pass (unchanged this wave) |
-| Vercel AI env names | match code; no rename |
-| Post-deploy | REQ-0024 + README/SECURITY on main; Sentry N+1 (BL-0010) still open |
-| Learner docs | README.md + SECURITY.md (contact@arnobmahmud.com) |
+| Post-deploy | push clears old production override snapshot; Sentry N+1 (BL-0010) still open |

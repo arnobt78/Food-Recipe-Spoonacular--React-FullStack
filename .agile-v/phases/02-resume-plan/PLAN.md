@@ -1,6 +1,8 @@
 # C1 Resume & Next-Scope Plan
 
-> **For agentic workers:** Do not implement until Human Gate 1 records `resume_token=av-c1-hg1-20260813-a7f3` in `APPROVALS.md`. After approval, use build-agent-js for code and red-team-verifier independently for Stage 4. Do not self-verify.
+> **SUPERSEDED 2026-08-19.** GATE-0001/0002 are closed. HEAD is `652f054`. Do not resume from this file’s halt. Current plan: `.agile-v/phases/03-resume-20260819/PLAN.md` (`resume_token=av-c1-hd-20260819-r3s9`).
+>
+> **Historical:** Do not implement until Human Gate 1 records `resume_token=av-c1-hg1-20260813-a7f3` in `APPROVALS.md`. After approval, use build-agent-js for code and red-team-verifier independently for Stage 4. Do not self-verify.
 
 **Goal:** Reconcile C1 recorded state with the repository, freeze a truthful resume point, and get Human Gate 1 approval for the next implementation slice.
 

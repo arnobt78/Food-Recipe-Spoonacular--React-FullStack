@@ -1,39 +1,32 @@
 # Agile V — Project State
 
-<!-- Living document — write-through on every stage transition -->
+| Field | Value |
+| --- | --- |
+| **Project** | recipe-spoonacular |
+| **Cycle** | C1 |
+| **Stage** | 4 — Verification (Red Team pending) |
+| **Status** | ACTIVE — REQ-0025 ART-0011 shipped; Gate 2 blocked |
+| **Last Updated** | 2026-08-19T21:05:00Z |
+| **Agent** | build-agent-js |
+| **Git Baseline** | REQ-0025 on `main` (push this session) |
 
-| Field            | Value                                                                 |
-| ---------------- | --------------------------------------------------------------------- |
-| **Project**      | recipe-spoonacular (Recipe Guide)                                     |
-| **Cycle**        | C1                                                                    |
-| **Phase**        | 02-delivery — docs README/SECURITY on main                            |
-| **Stage**        | 4 — Verification (partial; Red Team pending)                          |
-| **Status**       | ACTIVE — ART-0010 shipped; learner docs shipped; await Red Team       |
-| **Last Updated** | 2026-08-13T12:00:00Z                                                  |
-| **Agent**        | documentation-agent                                                   |
-| **Git Baseline** | `96e7c65` (README/SECURITY); tooling `1e8ddab`                        |
+## Focus
+REQ-0025 done: Vercel Next.js defaults + Node 24.x. Re-verified on **fnm Node v24.16.0** (earlier note that Node 24 was missing was a shell PATH miss — nvm 20 vs fnm 24). Dashboard Node 24.x; Build/Output overrides off.
 
-## Current Focus
-
-- Learner README + SECURITY.md on GitHub. Title/screenshots kept (user later extended title/author).
-- REQ-0024 / REQ-0010 code waves shipped. CRUD/SSE unchanged this docs pass.
-- Next: independent Red Team on REQ-0010. Deferred: RISK-0005/0006, BL-0010, Next 16 / Prisma 7.
-
-## Pipeline Position
-
+## Pipeline
 ```
-Stage 4: Verification  ← CURRENT (TC-0024/0025 PASS; Red Team pending)
-[Human Gate 2]         (pending)
+Stage 4 ← CURRENT (TC-0026 PASS; Red Team pending)
+[Gate 2] blocked until Red Team + EvalGate PASS/WAIVED
 ```
 
-## Active REQ IDs
+## Active REQ
+REQ-0025 shipped. REQ-0010 + REQ-0024 shipped.
 
-REQ-0010 + REQ-0024 shipped. No new product REQ this docs pass.
+## Validation (2026-08-19, Node v24.16.0)
+`npm run test` 15/15 · lint PASS · build PASS (Next 15.5.9)
 
-## Resume Token
+## Open
+Red Team · push (clears old prod override snapshot) · RISK-0005/0006 = REQ-0026 · BL-0010
 
-None.
-
-## Next exact task
-
-Dispatch red-team-verifier on REQ-0010 / CR-0002 (fresh context).
+## Next
+Independent red-team-verifier (do not self-verify). Push clears old production Framework override snapshot.

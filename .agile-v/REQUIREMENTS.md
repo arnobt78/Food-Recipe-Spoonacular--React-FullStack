@@ -165,6 +165,14 @@
 **Verification:** `npm run test && npm run lint && npm run build` pass; `eslint-config-next@15.5.9`; Sentry stays on 10.x (not 11).  
 **Done:** Shipped 2026-08-13 — ESLint 9 flat config, `@sentry/nextjs@10.70.0`, caniuse-lite refresh.
 
+### REQ-0025: Vercel Framework Defaults + Node 24 [approved C1]
+**Priority:** HIGH  
+**CR:** CR-0004  
+**Source:** GATE-0003 (dashboard Overridden vs library-managment defaults; Vercel Node 20 EOL 2026-10-01)  
+**Description:** Stop pinning Next.js-default build settings in `vercel.json` (`buildCommand`, `devCommand`, `installCommand`, `framework`, `outputDirectory`) so Vercel auto-detects Next.js like library-managment. Keep REQ-0017 `headers`. Pin `"engines": { "node": "24.x" }` so Vercel cannot keep Node 20 after 1 Oct 2026. Do not upgrade Next, React, or Prisma.  
+**Verification:** `vercel.json` has headers only (no framework command keys); `package.json` engines.node is `24.x`; TC-0026 pass; `npm run test && npm run lint && npm run build` pass. Dashboard Build/Output overrides off (Human-Action if CLI cannot write).  
+**Done:** Synthesis 2026-08-19 — ART-0011.
+
 ---
 
 ## Traceability Index
@@ -183,3 +191,4 @@
 | REQ-0022 | ART-0007 | TC-0002 |
 | REQ-0023 | ART-0008 | TC-0020, TC-0021 |
 | REQ-0024 | ART-0010 | TC-0025 |
+| REQ-0025 | ART-0011 | TC-0026 |

@@ -30,7 +30,7 @@ Project-specific operating guide for the Infinity Loop on this codebase.
 1 Requirements → 2 Validation → [Gate 1] → 3 Synthesis → 4 Verification → [Gate 2] → 5 Acceptance
 ```
 
-**Current:** README + SECURITY.md on main. REQ-0024 tooling + REQ-0010 AI shipped. Red Team / Gate 2 pending.
+**Current:** REQ-0025 shipped (build-agent): Vercel Next.js defaults + Node 24.x. REQ-0010/0024 shipped. Red Team / Gate 2 pending. RISK-0005/0006 deferred (future REQ-0026).
 
 ## Adding Work
 

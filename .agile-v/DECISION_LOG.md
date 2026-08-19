@@ -21,3 +21,6 @@
 | 2026-08-13T11:38:00Z | C1 | build-agent-js | GATE-0002 approved CR-0003 / REQ-0024 | Tooling only: browserslist, ESLint 9 on Next 15.5.9, Sentry 10.x. No Next 16 / Prisma 7 / CRUD. | REQ-0024 |
 | 2026-08-13T11:42:00Z | C1 | build-agent-js | ART-0010 shipped | ESLint 9 + eslint.config.mjs; @sentry/nextjs@10.70.0; caniuse-lite refreshed. Pinned @eslint/js@9 (not 10). next lint kept. | REQ-0024 |
 | 2026-08-13T11:55:00Z | C1 | documentation-agent | Educational README + SECURITY.md | Title/screenshots unchanged; env, API, reuse, private reports. | — |
+| 2026-08-19T20:46:00Z | C1 | agile-v-core | Resume reconcile; HALT INT-0002 | HEAD is `652f054` not `96e7c65`; working tree clean. Prompt had no product request after protocol delimiter. Next slice is Human-Decision A/B/C/D. Do not reuse REQ-0024 for RISK-0005/0006. | REQ-0010, REQ-0024 |
+| 2026-08-19T20:54:00Z | C1 | build-agent-js | GATE-0003 approved CR-0004 / REQ-0025 | INT-0002 closed; Vercel Next.js defaults + Node 24.x only. No Next 16 / Prisma 7 / CRUD. RISK-0005/0006 deferred as future REQ-0026. | REQ-0025 |
+| 2026-08-19T21:00:00Z | C1 | build-agent-js | ART-0011 shipped | vercel.json headers-only; engines.node 24.x; TC-0026 15/15; dashboard overrides null; Vercel nodeVersion 24.x. Re-verified Node v24.16.0 (fnm). Red Team not executed. | REQ-0025 |

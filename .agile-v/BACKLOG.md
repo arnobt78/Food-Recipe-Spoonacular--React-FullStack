@@ -60,6 +60,13 @@
 **Acceptance:** TC-0025; stay on Next 15.5.9; Sentry not 11.  
 **Effort:** S · **Status:** Done (`eslint.config.mjs`, Sentry 10.70.0)
 
+## BL-0013: Vercel Next.js defaults + Node 24
+**Type:** Ops · **Priority:** HIGH · **REQ:** REQ-0025  
+**Cycle:** C1 · **CR:** CR-0004  
+**Story:** As operator, I want recipe-spoonacular to use Vercel Next.js framework defaults (no Build/Output override) and Node 24.x so the Overridden warning clears and Node 20 builds do not fail after 1 Oct 2026.  
+**Acceptance:** TC-0026; `vercel.json` headers only; `engines.node` `24.x`; Next stays 15.5.9.  
+**Effort:** XS · **Status:** Done (`vercel.json` headers-only, `engines.node` 24.x, TC-0026)
+
 ## BL-0010: Post-deploy Sentry verification
 **Type:** Ops · **Priority:** MEDIUM · **REQ:** REQ-0020  
 **Story:** As operator, I confirm N+1 Sentry case 1 cleared on production after fix deploy.  

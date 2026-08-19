@@ -14,6 +14,7 @@
 | REQ-0022 | BL-0008 | ART-0007 | TC-0002 | — | shipped |
 | REQ-0023 | BL-0009 | ART-0008 | TC-0020, TC-0021 | RISK-0004 | mitigating |
 | REQ-0024 | BL-0012 | ART-0010 | TC-0025 | — | shipped |
+| REQ-0025 | BL-0013 | ART-0011 | TC-0026 | — | shipped |
 
 ## Orphans
 

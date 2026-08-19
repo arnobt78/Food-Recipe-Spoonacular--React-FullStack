@@ -11,3 +11,6 @@
 | 2026-08-13T11:42:00Z | prove | build-agent-js | ART-0010 + TC-0025; npm test 12/12 lint 0 warnings build PASS | REQ-0024 | 1.0.0 |
 | 2026-08-13T11:48:00Z | evolve | build-agent-js | Unlink RISK-0005/0006 from REQ-0024 ID collision | REQ-0024 | 1.0.0 |
 | 2026-08-13T12:00:00Z | docs | documentation-agent | README/SECURITY audit; dedupe security bullets; agent write-through | — | 1.0.0 |
+| 2026-08-19T20:46:00Z | resume | agile-v-core | Reconciled STATE vs `652f054`; wrote 03-resume-20260819/PLAN.md; INT-0002 PENDING | REQ-0010, REQ-0024 | 1.0.0 |
+| 2026-08-19T20:54:00Z | synthesis | build-agent-js | GATE-0003 + CR-0004; start ART-0011 vercel defaults + Node 24.x | REQ-0025 | 1.0.0 |
+| 2026-08-19T21:00:00Z | prove | build-agent-js | ART-0011 + TC-0026; npm test 15/15 lint build PASS on Node v24.16.0; Vercel overrides cleared; nodeVersion 24.x | REQ-0025 | 1.0.0 |

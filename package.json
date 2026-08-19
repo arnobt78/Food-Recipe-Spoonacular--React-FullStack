@@ -2,6 +2,9 @@
   "name": "recipe-spoonacular",
   "private": true,
   "version": "2.0.1",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev --turbo",
     "dev:webpack": "next dev",

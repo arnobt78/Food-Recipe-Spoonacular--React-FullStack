@@ -14,7 +14,8 @@
 | ART-0008 | C1 | REQ-0023 | shipped | Vitest baseline | `lib/__tests__/`, `vitest.config.ts`, `npm run test` |
 | ART-0009 | C1 | REQ-0010 | shipped | Free-tier AI fallback client | `lib/ai/`, `app/api/[...path]/route.ts` AI sites, `lib/__tests__/ai-fallback.test.ts` |
 | ART-0010 | C1 | REQ-0024 | shipped | Tooling hygiene | `eslint.config.mjs`, `@sentry/nextjs@10.70.0`, browserslist/caniuse-lite |
+| ART-0011 | C1 | REQ-0025 | shipped | Vercel Next.js defaults + Node 24.x | `vercel.json` (headers only), `package.json` engines, `lib/__tests__/vercel-defaults.test.ts` |
 
 ## Pending Builds (Stage 3)
 
-_None — CR-0003 synthesis complete._
+_None — CR-0004 synthesis complete._
